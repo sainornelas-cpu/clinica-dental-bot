@@ -86,6 +86,11 @@ function VistaCalendario({ turnos, fechaSeleccionada, setFechaSeleccionada }) {
     t => t.fecha_turno.startsWith(fechaSeleccionada)
   );
 
+  // 🔍 DEBUG LOGS
+  console.log('📅 [DEBUG] Turnos recibidos:', turnos);
+  console.log('📅 [DEBUG] Fecha seleccionada:', fechaSeleccionada);
+  console.log('📅 [DEBUG] Turnos del día:', turnosDelDia);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Calendario */}

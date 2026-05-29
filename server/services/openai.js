@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { getDb } from '../db.js';
-import { generarSlotsDisponibles } from '../utils/fechas.js';
+import { generarSlotsDisponibles, parsearFechaEspañol } from '../utils/fechas.js';
 
 // 🔧 CONFIGURACIÓN DE MODO (LAZY EVALUATION)
 // .env: USE_MOCK=true  → Desarrollo (sin API key, respuestas rápidas)
@@ -55,11 +55,33 @@ const getOpenAIClient = () => {
 
 const SYSTEM_PROMPT = `
 Sos Sarah, recepcionista virtual de {nombre_clinica}. Sos amable, profesional y eficiente.
-Tu rol es:
-- Responder preguntas sobre la clínica, servicios y horarios
-- Ayudar a agendar, consultar, cancelar o reprogramar turnos
-- Ser cálida y concisa, usar emojis moderadamente
-- Usar español rioplatense (tuteo con "vos", no "usted")
+
+REGLAS CRÍTICAS:
+
+1. **EXTRAER INFORMACIÓN DEL PACIENTE**:
+   - Cuando el usuario mencione su nombre (ej: "Soy Alfredo Ornelas" o "Alfredo Ornelas, sábado 30..."), EXTRAÉ el nombre completo
+   - Guardá el nombre inmediatamente usando la tool actualizar_datos_paciente
+   - Si el usuario ya mencionó su nombre anteriormente, no lo pidas de nuevo
+
+2. **INTERPRETAR FECHAS EN ESPAÑOL**:
+   - "sábado 30 de mayo" → 30/05/2026
+   - "viernes 5:00 PM" → viernes próximo a las 17:00
+   - "mañana 1 pm" → mañana a las 13:00
+   - "hoy" → fecha actual
+   - Siempre validá que la fecha sea futura y en horario laboral (9:00-18:00)
+
+3. **MANTENER CONTEXTO**:
+   - Recordá información previa de la conversación
+   - Si el usuario ya dio su nombre, usalo en las responses
+   - Si ya mencionó el tipo de servicio, no lo preguntes de nuevo
+
+4. **FLUJO DE AGENDAMIENTO**:
+   PASO 1: Obtener nombre (si no lo tiene) y guardarlo con actualizar_datos_paciente
+   PASO 2: Obtener tipo de servicio
+   PASO 3: Obtener fecha y hora preferida
+   PASO 4: Consultar disponibilidad (tool: consultar_disponibilidad)
+   PASO 5: Confirmar con el usuario
+   PASO 6: Agendar (tool: agendar_turno)
 
 Información de la clínica:
 - Nombre: {nombre_clinica}
@@ -69,14 +91,35 @@ Información de la clínica:
 - Horarios: {horarios}
 - Servicios: {servicios}
 
-Reglas:
-- Si quieren un turno, pedí nombre completo, fecha/hora preferida y tipo de consulta
-- Si no hay disponibilidad, sugerí alternativas cercanas
-- Nunca inventes información que no tengas
-- Si no podés resolver algo, ofrecé comunicar al paciente por teléfono
+TOOLS DISPONIBLES:
+- actualizar_datos_paciente({numero_telefono, nombre_paciente})
+- consultar_disponibilidad({fecha})
+- agendar_turno({numero_telefono, nombre_paciente, fecha_turno, tipo_turno})
+- ver_turnos_paciente({numero_telefono})
+- cancelar_turno({id_turno})
+- reprogramar_turno({id_turno, nueva_fecha})
+
+Usá español rioplatense (tuteo con "vos", no "usted"). Usá emojis moderadamente.
+Nunca inventes información que no tengas. Si no podés resolver algo, ofrecé comunicar al paciente por teléfono.
 `;
 
 const TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'actualizar_datos_paciente',
+      description: 'Actualiza el nombre del paciente en la base de datos',
+      parameters: {
+        type: 'object',
+        properties: {
+          numero_telefono: { type: 'string', description: 'Número de teléfono del paciente (formato: +521XXXXXXXXX)' },
+          nombre_paciente: { type: 'string', description: 'Nombre completo del paciente' }
+        },
+        required: ['numero_telefono', 'nombre_paciente'],
+        additionalProperties: false
+      }
+    }
+  },
   {
     type: 'function',
     function: {
@@ -153,8 +196,27 @@ const TOOLS = [
 const executeTool = async (toolName, args) => {
   const db = getDb();
   console.log(`🔧 Ejecutando tool: ${toolName}`, args);
-  
+
   switch (toolName) {
+    case 'actualizar_datos_paciente': {
+      const { numero_telefono, nombre_paciente } = args;
+      console.log(`👤 Actualizando paciente: ${numero_telefono} → ${nombre_paciente}`);
+
+      // Verificar si paciente existe
+      const existente = await db.get('SELECT * FROM pacientes WHERE numero_telefono = ?', numero_telefono);
+
+      if (existente) {
+        // Actualizar nombre si existe
+        await db.run('UPDATE pacientes SET nombre = ? WHERE numero_telefono = ?', [nombre_paciente, numero_telefono]);
+        console.log(`✅ Paciente actualizado: ${nombre_paciente}`);
+        return { success: true, accion: 'actualizado', nombre_paciente };
+      } else {
+        // Crear nuevo paciente
+        await db.run('INSERT INTO pacientes (numero_telefono, nombre) VALUES (?, ?)', [numero_telefono, nombre_paciente]);
+        console.log(`✅ Nuevo paciente creado: ${nombre_paciente}`);
+        return { success: true, accion: 'creado', nombre_paciente };
+      }
+    }
     case 'consultar_disponibilidad': {
       const { fecha } = args;
       const turnosDia = await db.all('SELECT fecha_turno FROM turnos WHERE DATE(fecha_turno) = ?', fecha);
