@@ -3,8 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { configuracionAPI } from '../lib/api';
 import { Save, Copy, Check, X, Webhook, Settings, Building2, Mail, Phone, Clock, FileText } from 'lucide-react';
 
-// URL del webhook
-const WEBHOOK_URL = 'http://localhost:3001/api/webhook/whatsapp';
+// URL del webhook: desarrollo localhost, producción URL relativa
+const WEBHOOK_URL = import.meta.env.DEV
+  ? 'http://localhost:3001/api/webhook/whatsapp'
+  : '/api/webhook/whatsapp';
 
 // Componente TabConfiguración
 function TabConfiguracion() {
