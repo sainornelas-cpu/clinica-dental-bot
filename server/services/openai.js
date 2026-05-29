@@ -16,14 +16,24 @@ const isMockMode = () => {
 // 🧪 MODO MOCK (Desarrollo)
 // ==========================================
 const mockResponses = {
-  'hola': '¡Hola! 👋 Soy Sarah, tu recepcionista virtual. ¿En qué puedo ayudarte hoy? 🦷✨',
-  'turno': '¡Claro! Para agendar necesito: tu nombre completo, el día que preferís y el tipo de consulta. ¿Me contás?',
-  'limpieza': 'La limpieza dental dura ~45 min. Tenemos horarios martes y jueves. ¿Te gustaría agendar?',
-  'horarios': 'Atendemos Lunes a Viernes de 9:00 a 18:00. ¿Qué día te viene bien?',
-  'precio': 'Los precios varían según el tratamiento. ¿Qué servicio te interesa?',
-  'cancelar': 'Para cancelar un turno, necesito el ID del turno o tu número de teléfono.',
-  'urgencia': '⚠️ Entiendo que es urgencia. Por favor, llamá directamente al teléfono de la clínica.',
-  'default': 'Entendí tu consulta. Para darte una respuesta precisa, ¿podrías contarme un poco más? 🦷'
+  'hola': '¡Hola! 👋 Soy Sarah, recepcionista virtual de la Clínica Dental Sonrisa.\n\nEstoy aquí para ayudarte con:\n1️⃣ Agendar una nueva cita\n2️⃣ Reagendar una cita existente\n3️⃣ Cancelar una cita\n4️⃣ Ver nuestra ubicación\n5️⃣ Consultar horarios de atención\n6️⃣ Ver servicios que ofrecemos\n7️⃣ Consultar costos\n\n👉 Respondé con el NÚMERO de la opción que necesitás (ej: "1" para agendar).\n¿En qué puedo ayudarte hoy? 🦷✨',
+  '1': '¡Perfecto! 🦷 Para agendar tu cita necesito:\n• Tu nombre completo\n• Tipo de servicio (limpieza, blanqueamiento, ortodoncia, etc.)\n• Fecha y hora preferida\n¿Me contás estos datos?',
+  'agendar': '¡Perfecto! 🦷 Para agendar tu cita necesito:\n• Tu nombre completo\n• Tipo de servicio (limpieza, blanqueamiento, ortodoncia, etc.)\n• Fecha y hora preferida\n¿Me contás estos datos?',
+  '2': 'Entendido, querés reagendar una cita. 📅\nPara ayudarte necesito tu número de teléfono para buscar tus turnos existentes.',
+  'reagendar': 'Entendido, querés reagendar una cita. 📅\nPara ayudarte necesito tu número de teléfono para buscar tus turnos existentes.',
+  '3': 'Para cancelar una cita, necesito tu número de teléfono para buscar tus turnos. 📞',
+  'cancelar': 'Para cancelar una cita, necesito tu número de teléfono para buscar tus turnos. 📞',
+  '4': '📍 Estamos en: Av. Corrientes 1234, CABA\n🗺️ https://maps.google.com/?q=Av.+Corrientes+1234+CABA\n¿Necesitás ayuda para llegar? 😊',
+  'ubicacion': '📍 Estamos en: Av. Corrientes 1234, CABA\n🗺️ https://maps.google.com/?q=Av.+Corrientes+1234+CABA\n¿Necesitás ayuda para llegar? 😊',
+  '5': '🕐 Horarios de atención:\nLunes a Viernes de 9:00 a 18:00\n⚠️ Cerramos feriados nacionales.\n¿Te gustaría agendar una cita? 😊',
+  'horarios': '🕐 Horarios de atención:\nLunes a Viernes de 9:00 a 18:00\n⚠️ Cerramos feriados nacionales.\n¿Te gustaría agendar una cita? 😊',
+  '6': '🦷 Nuestros servicios:\n• Limpieza dental (~45 min)\n• Blanqueamiento (~60 min)\n• Ortodoncia\n• Implantes\n• Endodoncia\n¿Te gustaría agendar alguno? 😊',
+  'servicios': '🦷 Nuestros servicios:\n• Limpieza dental (~45 min)\n• Blanqueamiento (~60 min)\n• Ortodoncia\n• Implantes\n• Endodoncia\n¿Te gustaría agendar alguno? 😊',
+  '7': '💰 Para presupuestos exactos, cada caso es único.\nTe recomiendo:\n📞 Llamanos al +54 11 1234-5678\n📧 Escribinos a contacto@clinicadental.com\n¿Te gustaría agendar una evaluación? 😊',
+  'costos': '💰 Para presupuestos exactos, cada caso es único.\nTe recomiendo:\n📞 Llamanos al +54 11 1234-5678\n📧 Escribinos a contacto@clinicadental.com\n¿Te gustaría agendar una evaluación? 😊',
+  'limpieza': 'La limpieza dental dura ~45 min. Tenemos horarios Lunes a Viernes de 9:00 a 18:00. ¿Te gustaría agendar? 🦷',
+  'urgencia': '⚠️ Entiendo que es urgencia. Por favor, llamá directamente al +54 11 1234-5678.',
+  'default': 'Disculpa, no entendí tu consulta. 😊\nPor favor, elegí una opción del menú:\n1️⃣ Agendar  2️⃣ Reagendar  3️⃣ Cancelar  4️⃣ Ubicación  5️⃣ Horarios  6️⃣ Servicios  7️⃣ Costos\n👉 Respondé con el número (ej: "1").'
 };
 
 const getMockResponse = (mensaje) => {
@@ -54,34 +64,88 @@ const getOpenAIClient = () => {
 };
 
 const SYSTEM_PROMPT = `
-Sos Sarah, recepcionista virtual de {nombre_clinica}. Sos amable, profesional y eficiente.
+Sos Sarah, recepcionista virtual de la Clínica Dental Sonrisa. Sos amable, profesional y eficiente.
 
-REGLAS CRÍTICAS:
+🎯 TU FLUJO PRINCIPAL:
 
-1. **EXTRAER INFORMACIÓN DEL PACIENTE**:
-   - Cuando el usuario mencione su nombre (ej: "Soy Alfredo Ornelas" o "Alfredo Ornelas, sábado 30..."), EXTRAÉ el nombre completo
-   - Guardá el nombre inmediatamente usando la tool actualizar_datos_paciente
-   - Si el usuario ya mencionó su nombre anteriormente, no lo pidas de nuevo
+**PRIMER CONTACTO** (cuando el usuario no ha elegido opción):
+Siempre respondé con el menú completo numerado (1-7) como se muestra abajo.
 
-2. **INTERPRETAR FECHAS EN ESPAÑOL**:
-   - "sábado 30 de mayo" → 30/05/2026
-   - "viernes 5:00 PM" → viernes próximo a las 17:00
-   - "mañana 1 pm" → mañana a las 13:00
-   - "hoy" → fecha actual
-   - Siempre validá que la fecha sea futura y en horario laboral (9:00-18:00)
+**MENÚ PRINCIPAL**:
+1️⃣ Agendar una nueva cita
+2️⃣ Reagendar una cita existente
+3️⃣ Cancelar una cita
+4️⃣ Ver nuestra ubicación
+5️⃣ Consultar horarios de atención
+6️⃣ Ver servicios que ofrecemos
+7️⃣ Consultar costos
 
-3. **MANTENER CONTEXTO**:
-   - Recordá información previa de la conversación
-   - Si el usuario ya dio su nombre, usalo en las responses
-   - Si ya mencionó el tipo de servicio, no lo preguntes de nuevo
+👉 El usuario puede responder con el NÚMERO (ej: "1") para navegar.
 
-4. **FLUJO DE AGENDAMIENTO**:
-   PASO 1: Obtener nombre (si no lo tiene) y guardarlo con actualizar_datos_paciente
-   PASO 2: Obtener tipo de servicio
-   PASO 3: Obtener fecha y hora preferida
-   PASO 4: Consultar disponibilidad (tool: consultar_disponibilidad)
-   PASO 5: Confirmar con el usuario
-   PASO 6: Agendar (tool: agendar_turno)
+**LÓGICA POR OPCIÓN**:
+
+[1 - AGENDAR]
+- Paso 1: Si no tenés el nombre, pedilo: "¿Cuál es tu nombre completo?"
+- Paso 2: Preguntá tipo de servicio (o usá si ya lo mencionó)
+- Paso 3: Pedí fecha/hora preferida (aceptá formato natural en español)
+- Paso 4: Usá parsearFechaEspañol() para interpretar la fecha
+- Paso 5: Consultá disponibilidad con tool consultar_disponibilidad
+- Paso 6: Confirmá con el usuario antes de agendar
+- Paso 7: Ejecutá agendar_turno con todos los datos
+
+[2 - REAGENDAR]
+- Pedí número de teléfono para buscar turnos
+- Mostrá turnos existentes con ver_turnos_paciente
+- Pedí nueva fecha/hora preferida
+- Confirmá y ejecutá reprogramar_turno
+
+[3 - CANCELAR]
+- Pedí número de teléfono
+- Mostrá turnos para confirmar cuál cancelar
+- Pedí confirmación explícita ("¿Estás seguro de cancelar?")
+- Ejecutá cancelar_turno
+
+[4 - UBICACIÓN]
+Respondé con:
+"📍 Estamos en: {direccion}
+🗺️ Ver en mapa: https://maps.google.com/?q={direccion}
+🚌 ¿Necesitás ayuda para llegar? 😊"
+
+[5 - HORARIOS]
+Respondé con:
+"🕐 Horarios de atención:
+{horarios}
+⚠️ Cerramos feriados nacionales.
+¿Te gustaría agendar una cita en alguno de estos horarios? 😊"
+
+[6 - SERVICIOS]
+Respondé con lista de {servicios}, cada uno con:
+- Nombre del servicio
+- Duración estimada (ej: "Limpieza Dental (~45 min)")
+- Breve descripción si aplica
+
+[7 - COSTOS]
+Respondé con:
+"💰 Para presupuestos exactos, cada caso es único.
+Te recomiendo:
+📞 Llamanos al {telefono}
+📧 Escribinos a {email}
+🏥 Visitános para una evaluación sin cargo
+
+¿Te gustaría agendar una evaluación? 😊"
+
+**FALLBACK** (cuando no entendés la consulta):
+"Disculpa, no entendí tu consulta. 😊
+Por favor, elegí una opción del menú:
+1️⃣ Agendar  2️⃣ Reagendar  3️⃣ Cancelar  4️⃣ Ubicación  5️⃣ Horarios  6️⃣ Servicios  7️⃣ Costos
+👉 Respondé con el número (ej: "1")."
+
+**REGLAS CRÍTICAS**:
+1. EXTRAER Y GUARDAR NOMBRE: Cuando el usuario mencione su nombre, usá actualizar_datos_paciente inmediatamente
+2. PARSEAR FECHAS EN ESPAÑOL: Usá parsearFechaEspañol() para interpretar "sábado 30 de mayo", "mañana 3 pm", etc.
+3. MANTENER CONTEXTO: No repitas preguntas si ya tenés la información
+4. PERMITIR "MENÚ" O "0": Si el usuario escribe "menú" o "0", volvé a mostrar el menú principal
+5. TONO: Español rioplatense (tuteo con "vos"), amable, profesional, emojis moderados
 
 Información de la clínica:
 - Nombre: {nombre_clinica}
@@ -99,7 +163,6 @@ TOOLS DISPONIBLES:
 - cancelar_turno({id_turno})
 - reprogramar_turno({id_turno, nueva_fecha})
 
-Usá español rioplatense (tuteo con "vos", no "usted"). Usá emojis moderadamente.
 Nunca inventes información que no tengas. Si no podés resolver algo, ofrecé comunicar al paciente por teléfono.
 `;
 
@@ -259,6 +322,30 @@ export const processMessage = async ({ from, mensaje, clinicaConfig, historial }
     console.log(`🔑 [MODO] USE_MOCK env: "${process.env.USE_MOCK}" → Modo activo: ${isMockMode() ? 'MOCK' : 'OPENAI'}`);
 
     console.log(`🤖 Sarah: procesando "${mensaje}" de ${from}`);
+
+    // 🔧 DETECCIÓN DE SELECCIÓN DE MENÚ (1-7)
+    // Si el mensaje es solo un número 1-7 y es temprano en la conversación
+    const menuSelection = mensaje.trim().match(/^([1-7])$/);
+    if (menuSelection && historial.length <= 2) {
+      const optionMap = {
+        '1': 'Quiero agendar una nueva cita',
+        '2': 'Quiero reagendar una cita existente',
+        '3': 'Quiero cancelar una cita',
+        '4': 'Quiero saber la ubicación de la clínica',
+        '5': 'Quiero consultar los horarios de atención',
+        '6': 'Quiero ver los servicios que ofrecen',
+        '7': 'Quiero consultar costos'
+      };
+      const opcionTexto = optionMap[menuSelection[1]];
+      console.log(`🔢 [MENÚ] Selección: ${menuSelection[1]} → "${opcionTexto}"`);
+      mensaje = opcionTexto;
+    }
+
+    // 🔄 DETECCIÓN DE "MENÚ" O "0" (volver al inicio)
+    if (mensaje.trim().toLowerCase() === 'menú' || mensaje.trim() === '0') {
+      console.log(`🔄 [MENÚ] Usuario pidió volver al menú principal`);
+      mensaje = 'Mostrame el menú principal de opciones';
+    }
 
     // 🧪 MODO MOCK
     if (isMockMode()) {
