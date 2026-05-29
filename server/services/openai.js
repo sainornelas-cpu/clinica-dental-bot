@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { getDb } from '../db.js';
 import { generarSlotsDisponibles, parsearFechaEspañol } from '../utils/fechas.js';
+import { telefonoParaDB, normalizarTelefono } from '../utils/telefono.js';
 
 // 🔧 CONFIGURACIÓN DE MODO (LAZY EVALUATION)
 // .env: USE_MOCK=true  → Desarrollo (sin API key, respuestas rápidas)
@@ -16,7 +17,7 @@ const isMockMode = () => {
 // 🧪 MODO MOCK (Desarrollo)
 // ==========================================
 const mockResponses = {
-  'hola': '¡Hola! 👋 Soy Sarah, recepcionista virtual de la Clínica Dental Sonrisa.\n\nEstoy aquí para ayudarte con:\n1️⃣ Agendar una nueva cita\n2️⃣ Reagendar una cita existente\n3️⃣ Cancelar una cita\n4️⃣ Ver nuestra ubicación\n5️⃣ Consultar horarios de atención\n6️⃣ Ver servicios que ofrecemos\n7️⃣ Consultar costos\n\n👉 Respondé con el NÚMERO de la opción que necesitás (ej: "1" para agendar).\n¿En qué puedo ayudarte hoy? 🦷✨',
+  'hola': '¡Hola! 👋 Soy Sarah, recepcionista virtual de la Clínica Dental Sonrisa.\n\nEstoy aquí para ayudarte con:\n1️⃣ Agendar una nueva cita\n2️⃣ Reagendar una cita existente\n3️⃣ Cancelar una cita\n4️⃣ Ver nuestra ubicación\n5️⃣ Consultar horarios de atención\n6️⃣ Ver servicios que ofrecemos\n7️⃣ Consultar costos\n8️⃣ Ver mis citas agendadas\n\n👉 Respondé con el NÚMERO de la opción que necesitás (ej: "8" para ver tus citas).\n¿En qué puedo ayudarte hoy? 🦷✨',
   '1': '¡Perfecto! 🦷 Para agendar tu cita necesito:\n• Tu nombre completo\n• Tipo de servicio (limpieza, blanqueamiento, ortodoncia, etc.)\n• Fecha y hora preferida\n¿Me contás estos datos?',
   'agendar': '¡Perfecto! 🦷 Para agendar tu cita necesito:\n• Tu nombre completo\n• Tipo de servicio (limpieza, blanqueamiento, ortodoncia, etc.)\n• Fecha y hora preferida\n¿Me contás estos datos?',
   '2': 'Entendido, querés reagendar una cita. 📅\nPara ayudarte necesito tu número de teléfono para buscar tus turnos existentes.',
@@ -29,11 +30,13 @@ const mockResponses = {
   'horarios': '🕐 Horarios de atención:\nLunes a Viernes de 9:00 a 18:00\n⚠️ Cerramos feriados nacionales.\n¿Te gustaría agendar una cita? 😊',
   '6': '🦷 Nuestros servicios:\n• Limpieza dental (~45 min)\n• Blanqueamiento (~60 min)\n• Ortodoncia\n• Implantes\n• Endodoncia\n¿Te gustaría agendar alguno? 😊',
   'servicios': '🦷 Nuestros servicios:\n• Limpieza dental (~45 min)\n• Blanqueamiento (~60 min)\n• Ortodoncia\n• Implantes\n• Endodoncia\n¿Te gustaría agendar alguno? 😊',
-  '7': '💰 Para presupuestos exactos, cada caso es único.\nTe recomiendo:\n📞 Llamanos al +54 11 1234-5678\n📧 Escribinos a contacto@clinicadental.com\n¿Te gustaría agendar una evaluación? 😊',
-  'costos': '💰 Para presupuestos exactos, cada caso es único.\nTe recomiendo:\n📞 Llamanos al +54 11 1234-5678\n📧 Escribinos a contacto@clinicadental.com\n¿Te gustaría agendar una evaluación? 😊',
+  '7': '💰 Precios de referencia (pueden variar según diagnóstico):\n\n| Servicio              | Rango aproximado |\n|----------------------|------------------|\n| Limpieza Dental      | $800 - $1,200 MXN |\n| Blanqueamiento       | $2,500 - $4,000 MXN |\n| Ortodoncia (mes)     | $1,500 - $3,000 MXN |\n| Implantes            | $8,000 - $15,000 MXN |\n| Evaluación inicial   | $500 MXN* |\n\n*La evaluación inicial tiene costo y se descuenta si continuás con tratamiento.\n\n📞 Para presupuesto exacto: Llamanos al +54 11 1234-5678',
+  'costos': '💰 Precios de referencia (pueden variar según diagnóstico):\n\n| Servicio              | Rango aproximado |\n|----------------------|------------------|\n| Limpieza Dental      | $800 - $1,200 MXN |\n| Blanqueamiento       | $2,500 - $4,000 MXN |\n| Ortodoncia (mes)     | $1,500 - $3,000 MXN |\n| Implantes            | $8,000 - $15,000 MXN |\n| Evaluación inicial   | $500 MXN* |\n\n*La evaluación inicial tiene costo y se descuenta si continuás con tratamiento.\n\n📞 Para presupuesto exacto: Llamanos al +54 11 1234-5678',
+  '8': '📅 Consultando tus citas agendadas...\n\n(Si hay turnos, listarlos aquí. Si no, preguntar si quieren agendar)',
+  'ver citas': '📅 Consultando tus citas agendadas...',
   'limpieza': 'La limpieza dental dura ~45 min. Tenemos horarios Lunes a Viernes de 9:00 a 18:00. ¿Te gustaría agendar? 🦷',
   'urgencia': '⚠️ Entiendo que es urgencia. Por favor, llamá directamente al +54 11 1234-5678.',
-  'default': 'Disculpa, no entendí tu consulta. 😊\nPor favor, elegí una opción del menú:\n1️⃣ Agendar  2️⃣ Reagendar  3️⃣ Cancelar  4️⃣ Ubicación  5️⃣ Horarios  6️⃣ Servicios  7️⃣ Costos\n👉 Respondé con el número (ej: "1").'
+  'default': 'Disculpa, no entendí tu consulta. 😊\nPor favor, elegí una opción del menú:\n1️⃣ Agendar  2️⃣ Reagendar  3️⃣ Cancelar  4️⃣ Ubicación  5️⃣ Horarios  6️⃣ Servicios  7️⃣ Costos  8️⃣ Ver mis citas\n👉 Respondé con el número (ej: "1").'
 };
 
 const getMockResponse = (mensaje) => {
@@ -69,7 +72,7 @@ Sos Sarah, recepcionista virtual de la Clínica Dental Sonrisa. Sos amable, prof
 🎯 TU FLUJO PRINCIPAL:
 
 **PRIMER CONTACTO** (cuando el usuario no ha elegido opción):
-Siempre respondé con el menú completo numerado (1-7) como se muestra abajo.
+Siempre respondé con el menú completo numerado (1-8) como se muestra abajo.
 
 **MENÚ PRINCIPAL**:
 1️⃣ Agendar una nueva cita
@@ -79,8 +82,9 @@ Siempre respondé con el menú completo numerado (1-7) como se muestra abajo.
 5️⃣ Consultar horarios de atención
 6️⃣ Ver servicios que ofrecemos
 7️⃣ Consultar costos
+8️⃣ Ver mis citas agendadas
 
-👉 El usuario puede responder con el NÚMERO (ej: "1") para navegar.
+👉 El usuario puede responder con el NÚMERO (ej: "8" para ver sus citas).
 
 **LÓGICA POR OPCIÓN**:
 
@@ -91,7 +95,8 @@ Siempre respondé con el menú completo numerado (1-7) como se muestra abajo.
 - Paso 4: Usá parsearFechaEspañol() para interpretar la fecha
 - Paso 5: Consultá disponibilidad con tool consultar_disponibilidad
 - Paso 6: Confirmá con el usuario antes de agendar
-- Paso 7: Ejecutá agendar_turno con todos los datos
+- Paso 7: Si el tipo de servicio es "Evaluación inicial", confirmar explícitamente el costo de $500 MXN
+- Paso 8: Ejecutá agendar_turno con todos los datos
 
 [2 - REAGENDAR]
 - Pedí número de teléfono para buscar turnos
@@ -125,19 +130,38 @@ Respondé con lista de {servicios}, cada uno con:
 - Breve descripción si aplica
 
 [7 - COSTOS]
-Respondé con:
-"💰 Para presupuestos exactos, cada caso es único.
-Te recomiendo:
-📞 Llamanos al {telefono}
-📧 Escribinos a {email}
-🏥 Visitános para una evaluación sin cargo
+Respondé con esta estructura:
 
-¿Te gustaría agendar una evaluación? 😊"
+"💰 Precios de referencia (pueden variar según diagnóstico):
+
+| Servicio              | Rango aproximado |
+|----------------------|------------------|
+| Limpieza Dental      | $800 - $1,200 MXN |
+| Blanqueamiento       | $2,500 - $4,000 MXN |
+| Ortodoncia (mes)     | $1,500 - $3,000 MXN |
+| Implantes            | $8,000 - $15,000 MXN |
+| Evaluación inicial   | $500 MXN* |
+
+*La evaluación inicial tiene costo y se descuenta si continuás con tratamiento.
+
+📞 Para presupuesto exacto y personalizado:
+• Llamanos: {telefono}
+• Escribinos: {email}
+• Visitános: evaluación con diagnóstico completo"
+
+NO incluir CTA automático para agendar evaluación. Esperar que el usuario elija.
+
+[8 - VER MIS CITAS]
+- NO pedir número de teléfono al usuario
+- Usar automáticamente el número del webhook ({numero_telefono_webhook})
+- Ejecutar ver_turnos_paciente_auto con ese número
+- Si no hay turnos: "Parece que no tenés citas registradas con este número. ¿Querés agendar una nueva cita? (Escribí '1' para agendar)"
+- Si hay turnos: listarlos con fecha, hora y tipo de servicio
 
 **FALLBACK** (cuando no entendés la consulta):
 "Disculpa, no entendí tu consulta. 😊
 Por favor, elegí una opción del menú:
-1️⃣ Agendar  2️⃣ Reagendar  3️⃣ Cancelar  4️⃣ Ubicación  5️⃣ Horarios  6️⃣ Servicios  7️⃣ Costos
+1️⃣ Agendar  2️⃣ Reagendar  3️⃣ Cancelar  4️⃣ Ubicación  5️⃣ Horarios  6️⃣ Servicios  7️⃣ Costos  8️⃣ Ver mis citas
 👉 Respondé con el número (ej: "1")."
 
 **REGLAS CRÍTICAS**:
@@ -154,12 +178,14 @@ Información de la clínica:
 - Email: {email}
 - Horarios: {horarios}
 - Servicios: {servicios}
+- Teléfono del webhook (usuario actual): {numero_telefono_webhook}
 
 TOOLS DISPONIBLES:
 - actualizar_datos_paciente({numero_telefono, nombre_paciente})
 - consultar_disponibilidad({fecha})
 - agendar_turno({numero_telefono, nombre_paciente, fecha_turno, tipo_turno})
-- ver_turnos_paciente({numero_telefono})
+- ver_turnos_paciente({numero_telefono}) - Usa número explícito
+- ver_turnos_paciente_auto() - Usa automáticamente {numero_telefono_webhook}
 - cancelar_turno({id_turno})
 - reprogramar_turno({id_turno, nueva_fecha})
 
@@ -205,6 +231,19 @@ const TOOLS = [
         type: 'object',
         properties: { numero_telefono: { type: 'string' } },
         required: ['numero_telefono'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'ver_turnos_paciente_auto',
+      description: 'Obtiene los turnos activos del paciente actual usando su número de WhatsApp automáticamente (NO requiere número)',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
         additionalProperties: false
       }
     }
@@ -290,6 +329,11 @@ const executeTool = async (toolName, args) => {
       const { numero_telefono } = args;
       return await db.all('SELECT id, fecha_turno, tipo_turno, estado, notas FROM turnos WHERE numero_telefono = ? AND estado != "cancelado" ORDER BY fecha_turno ASC', numero_telefono);
     }
+    case 'ver_turnos_paciente_auto': {
+      // Esta tool se llama desde processMessage con el 'from' del webhook
+      // Pero por ahora retornamos un error porque necesita el contexto del webhook
+      throw new Error('Esta tool se ejecuta automáticamente con el número del webhook. No requiere parámetros.');
+    }
     case 'agendar_turno': {
       const { numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas } = args;
       const existente = await db.get('SELECT id FROM turnos WHERE DATE(fecha_turno) = ? AND TIME(fecha_turno) = TIME(?) AND estado != "cancelado"', fecha_turno, fecha_turno);
@@ -323,9 +367,9 @@ export const processMessage = async ({ from, mensaje, clinicaConfig, historial }
 
     console.log(`🤖 Sarah: procesando "${mensaje}" de ${from}`);
 
-    // 🔧 DETECCIÓN DE SELECCIÓN DE MENÚ (1-7)
-    // Si el mensaje es solo un número 1-7 y es temprano en la conversación
-    const menuSelection = mensaje.trim().match(/^([1-7])$/);
+    // 🔧 DETECCIÓN DE SELECCIÓN DE MENÚ (1-8)
+    // Si el mensaje es solo un número 1-8 y es temprano en la conversación
+    const menuSelection = mensaje.trim().match(/^([1-8])$/);
     if (menuSelection && historial.length <= 2) {
       const optionMap = {
         '1': 'Quiero agendar una nueva cita',
@@ -334,7 +378,8 @@ export const processMessage = async ({ from, mensaje, clinicaConfig, historial }
         '4': 'Quiero saber la ubicación de la clínica',
         '5': 'Quiero consultar los horarios de atención',
         '6': 'Quiero ver los servicios que ofrecen',
-        '7': 'Quiero consultar costos'
+        '7': 'Quiero consultar costos',
+        '8': 'Quiero ver mis citas agendadas'
       };
       const opcionTexto = optionMap[menuSelection[1]];
       console.log(`🔢 [MENÚ] Selección: ${menuSelection[1]} → "${opcionTexto}"`);
@@ -363,7 +408,8 @@ export const processMessage = async ({ from, mensaje, clinicaConfig, historial }
       .replace('{telefono}', clinicaConfig?.telefono || '')
       .replace('{email}', clinicaConfig?.email || '')
       .replace('{horarios}', clinicaConfig?.horarios || '')
-      .replace('{servicios}', Array.isArray(clinicaConfig?.servicios) ? clinicaConfig.servicios.join(', ') : clinicaConfig?.servicios || '');
+      .replace('{servicios}', Array.isArray(clinicaConfig?.servicios) ? clinicaConfig.servicios.join(', ') : clinicaConfig?.servicios || '')
+      .replace('{numero_telefono_webhook}', telefonoParaDB(from) || 'desconocido');
 
     const messages = [
       { role: 'system', content: systemPrompt },
