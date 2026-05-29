@@ -1,6 +1,6 @@
 // Cliente API para el backend Express
-// Puerto del servidor: 3001
-const API_BASE = 'http://localhost:3001/api';
+// En desarrollo: localhost:3001, En producción: URL relativa (mismo dominio)
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
 // Métodos HTTP base
 export const api = {
