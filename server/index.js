@@ -37,7 +37,12 @@ conectarBaseDeDatos()
 
     // 🔧 PRODUCCIÓN: Servir frontend estático
     if (process.env.NODE_ENV === 'production') {
-      const distPath = path.join(__dirname, '..', 'client', 'dist');
+      // Usar process.cwd() para Railway (más robusto que __dirname)
+      const distPath = path.join(process.cwd(), 'client', 'dist');
+      console.log('📁 Serving static files from:', distPath);
+      console.log('📁 process.cwd():', process.cwd());
+      console.log('📁 __dirname:', __dirname);
+
       app.use(express.static(distPath));
 
       // SPA routing: todas las rutas no-API van a index.html
