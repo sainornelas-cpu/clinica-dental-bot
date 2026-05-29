@@ -25,4 +25,4 @@ yarn-error.log*
 Thumbs.db
 
 # Build output
-client/dist/
+# client/dist/  # Comentado para Railway deploy - necesita archivos estáticos
