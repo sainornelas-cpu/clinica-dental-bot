@@ -152,10 +152,9 @@ Respondé con esta estructura:
 NO incluir CTA automático para agendar evaluación. Esperar que el usuario elija.
 
 [8 - VER MIS CITAS]
-- NO pedir número de teléfono al usuario
-- Usar automáticamente el número del webhook ({numero_telefono_webhook})
-- Ejecutar ver_turnos_paciente_auto con ese número
-- Si no hay turnos: "Parece que no tenés citas registradas con este número. ¿Querés agendar una nueva cita? (Escribí '1' para agendar)"
+- Esta opción se maneja automáticamente sin necesidad de tools
+- El sistema usa directamente el número del webhook ({numero_telefono_webhook})
+- Si no hay turnos: mostrar mensaje amable sugiriendo agendar nueva cita
 - Si hay turnos: listarlos con fecha, hora y tipo de servicio
 
 **FALLBACK** (cuando no entendés la consulta):
@@ -184,8 +183,7 @@ TOOLS DISPONIBLES:
 - actualizar_datos_paciente({numero_telefono, nombre_paciente})
 - consultar_disponibilidad({fecha})
 - agendar_turno({numero_telefono, nombre_paciente, fecha_turno, tipo_turno})
-- ver_turnos_paciente({numero_telefono}) - Usa número explícito
-- ver_turnos_paciente_auto() - Usa automáticamente {numero_telefono_webhook}
+- ver_turnos_paciente({numero_telefono}) - Para uso manual si es necesario
 - cancelar_turno({id_turno})
 - reprogramar_turno({id_turno, nueva_fecha})
 
@@ -231,19 +229,6 @@ const TOOLS = [
         type: 'object',
         properties: { numero_telefono: { type: 'string' } },
         required: ['numero_telefono'],
-        additionalProperties: false
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'ver_turnos_paciente_auto',
-      description: 'Obtiene los turnos activos del paciente actual usando su número de WhatsApp automáticamente (NO requiere número)',
-      parameters: {
-        type: 'object',
-        properties: {},
-        required: [],
         additionalProperties: false
       }
     }
@@ -329,11 +314,6 @@ const executeTool = async (toolName, args) => {
       const { numero_telefono } = args;
       return await db.all('SELECT id, fecha_turno, tipo_turno, estado, notas FROM turnos WHERE numero_telefono = ? AND estado != "cancelado" ORDER BY fecha_turno ASC', numero_telefono);
     }
-    case 'ver_turnos_paciente_auto': {
-      // Esta tool se llama desde processMessage con el 'from' del webhook
-      // Pero por ahora retornamos un error porque necesita el contexto del webhook
-      throw new Error('Esta tool se ejecuta automáticamente con el número del webhook. No requiere parámetros.');
-    }
     case 'agendar_turno': {
       const { numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas } = args;
       const existente = await db.get('SELECT id FROM turnos WHERE DATE(fecha_turno) = ? AND TIME(fecha_turno) = TIME(?) AND estado != "cancelado"', fecha_turno, fecha_turno);
@@ -383,6 +363,67 @@ export const processMessage = async ({ from, mensaje, clinicaConfig, historial }
       };
       const opcionTexto = optionMap[menuSelection[1]];
       console.log(`🔢 [MENÚ] Selección: ${menuSelection[1]} → "${opcionTexto}"`);
+
+      // 🔧 MANEJO DIRECTO DE OPCIÓN 8: "Ver mis citas agendadas"
+      if (menuSelection[1] === '8') {
+        console.log(`🔢 [MENÚ] Opción 8: Consultando turnos para ${from}`);
+
+        try {
+          // Normalizar teléfono para DB lookup
+          const numeroDB = telefonoParaDB(from);
+          console.log(`📞 [DB lookup] Número: ${numeroDB}`);
+
+          // Consultar turnos activos del paciente
+          const db = getDb();
+          const turnos = await db.all(
+            `SELECT id, fecha_turno, tipo_turno, estado, notas
+             FROM turnos
+             WHERE numero_telefono = ? AND estado != 'cancelado'
+             ORDER BY fecha_turno ASC`,
+            [numeroDB]
+          );
+
+          console.log(`📊 [Turnos encontrados] ${turnos.length} para ${numeroDB}`);
+
+          // Formatear respuesta
+          if (turnos.length === 0) {
+            return `Parece que no tenés citas agendadas con este número. 😊
+
+Si creés que esto es un error, o si usaste otro número para agendar, avisame.
+
+¿Te gustaría agendar una nueva cita? Respondé "1" para comenzar. 🦷✨`;
+          } else {
+            // Formatear lista de turnos
+            const listaTurnos = turnos.map(t => {
+              const fecha = new Date(t.fecha_turno).toLocaleDateString('es-AR', {
+                weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
+              });
+              return `• ${fecha} - ${t.tipo_turno}`;
+            }).join('\n');
+
+            return `📅 Tus citas agendadas:
+
+${listaTurnos}
+
+¿Necesitás reagendar o cancelar alguna? Respondé:
+• "2" para reagendar
+• "3" para cancelar
+• "1" para agendar una nueva cita 😊`;
+          }
+
+        } catch (error) {
+          console.error('❌ [ERROR] Consultando turnos:', error.message);
+          return `Disculpa, tuve un problema al consultar tus citas. 😔
+
+Por favor intentá de nuevo en unos minutos, o comunicate con nosotros:
+📞 ${clinicaConfig?.telefono || '+54911-1234-5678'}
+📧 ${clinicaConfig?.email || 'contacto@clinicasonrisa.com'}
+
+¿En qué más puedo ayudarte?`;
+        }
+      }
+
+      // Para otras opciones, continuar con OpenAI
       mensaje = opcionTexto;
     }
 
