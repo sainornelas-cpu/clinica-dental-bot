@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import { getAIResponse, getProviderInfo } from './ai.js';
 import { getDb } from '../db.js';
 import { generarSlotsDisponibles, parsearFechaEspañol } from '../utils/fechas.js';
 import { telefonoParaDB, normalizarTelefono } from '../utils/telefono.js';
@@ -48,24 +48,8 @@ const getMockResponse = (mensaje) => {
 };
 
 // ==========================================
-// 🚀 MODO PRODUCCIÓN (OpenAI GPT-4o)
+// 🤖 SYSTEM PROMPT (Sarah - Menú 1-8)
 // ==========================================
-// 🔑 CLIENTE LAZY: Se crea dentro de la función para asegurar que dotenv ya cargó
-// Esto soluciona el problema de imports en ES Modules donde dotenv.config() 
-// se ejecuta después de que los módulos importan este archivo.
-let openaiClient = null;
-const getOpenAIClient = () => {
-  if (!openaiClient) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY no está definida en process.env. Verificá tu archivo .env');
-    }
-    openaiClient = new OpenAI({ apiKey });
-    console.log('🔑 OpenAI client inicializado correctamente');
-  }
-  return openaiClient;
-};
-
 const SYSTEM_PROMPT = `
 Sos Sarah, recepcionista virtual de la Clínica Dental Sonrisa. Sos amable, profesional y eficiente.
 
@@ -441,8 +425,9 @@ Por favor intentá de nuevo en unos minutos, o comunicate con nosotros:
       return respuesta;
     }
 
-    // 🚀 MODO PRODUCCIÓN (OpenAI)
-    console.log('🚀 Modo Producción (OpenAI) activado');
+    // 🚀 MODO PRODUCCIÓN (Groq / OpenAI)
+    console.log('🚀 Modo Producción (IA) activado');
+    const providerInfo = getProviderInfo();
     const systemPrompt = SYSTEM_PROMPT
       .replace('{nombre_clinica}', clinicaConfig?.nombre_clinica || 'la clínica')
       .replace('{direccion}', clinicaConfig?.direccion || '')
@@ -458,16 +443,9 @@ Por favor intentá de nuevo en unos minutos, o comunicate con nosotros:
       { role: 'user', content: mensaje }
     ];
 
-    // 🔑 PRIMERA LLAMADA: Usar getOpenAIClient() en lugar de openai directo
-    let response = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o-mini',  // 💰 10x más barato, suficiente para Sarah
-      messages,
-      tools: TOOLS,
-      tool_choice: 'auto',
-      temperature: 0.7
-    });
+    // 🔑 PRIMERA LLAMADA: Usar wrapper getAIResponse (Groq prioridad)
+    let response = await getAIResponse(messages, TOOLS, 'auto');
 
-    console.log(`🤖 [AI] Modelo: gpt-4o-mini | Tokens: ${response.usage?.total_tokens || 'N/A'}`);
     const assistantMessage = response.choices[0].message;
 
     // Si hay tool_calls, ejecutar las herramientas y hacer segunda llamada
@@ -494,12 +472,8 @@ Por favor intentá de nuevo en unos minutos, o comunicate con nosotros:
         }
       }
       
-      // 🔑 SEGUNDA LLAMADA: También usar getOpenAIClient()
-      response = await getOpenAIClient().chat.completions.create({
-        model: 'gpt-4o-mini',  // 💰 10x más barato
-        messages,
-        temperature: 0.7
-      });
+      // 🔑 SEGUNDA LLAMADA: Usar wrapper getAIResponse
+      response = await getAIResponse(messages, null, null);
     }
 
     return response.choices[0].message.content;
