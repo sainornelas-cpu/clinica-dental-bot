@@ -123,6 +123,11 @@ Sos Sarah, recepcionista virtual de la Clínica Dental Sonrisa. Sos cálida, pro
 - cancelar_turno({id_turno})
 - reprogramar_turno({id_turno, nueva_fecha})
 
+⚠️ IMPORTANTE PARA FECHAS EN TOOLS:
+- Al llamar a consultar_disponibilidad o agendar_turno, podés enviar la fecha en lenguaje natural ("mañana", "sábado 30 de mayo 3pm")
+- El sistema la convertirá automáticamente a formato técnico
+- Si el parseo falla, respondé amablemente pidiendo clarificación sin mostrar el menú completo
+
 Nunca inventes información. Si algo requiere validación clínica o precio exacto, derivá al teléfono/email. Mantené el tono humano en todo momento. ✨
 `;
 
@@ -147,10 +152,15 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'consultar_disponibilidad',
-      description: 'Consulta horarios disponibles para una fecha específica',
+      description: 'Consulta horarios disponibles para una fecha. La fecha puede estar en formato natural (ej: "mañana", "sábado 30 de mayo") o ISO (YYYY-MM-DD). El sistema la convertirá automáticamente.',
       parameters: {
         type: 'object',
-        properties: { fecha: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' } },
+        properties: {
+          fecha: {
+            type: 'string',
+            description: 'Fecha preferida (ej: "mañana", "2026-06-02", "sábado 30 de mayo")'
+          }
+        },
         required: ['fecha'],
         additionalProperties: false
       }
@@ -173,13 +183,13 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'agendar_turno',
-      description: 'Agenda un nuevo turno',
+      description: 'Agenda un nuevo turno. La fecha/hora puede estar en formato natural (ej: "mañana 3pm", "sábado 30 de mayo 15:00") o ISO.',
       parameters: {
         type: 'object',
         properties: {
           numero_telefono: { type: 'string' },
           nombre_paciente: { type: 'string' },
-          fecha_turno: { type: 'string' },
+          fecha_turno: { type: 'string', description: 'Fecha y hora (ej: "mañana 3pm", "2026-06-02T15:00:00", "sábado 30 de mayo 15:00")' },
           tipo_turno: { type: 'string' },
           notas: { type: 'string' }
         },
@@ -241,9 +251,22 @@ const executeTool = async (toolName, args) => {
       }
     }
     case 'consultar_disponibilidad': {
-      const { fecha } = args;
+      let { fecha } = args;
+
+      // 📅 Si la fecha no está en formato ISO, parsearla
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+        const parsed = parsearFechaEspañol(fecha);
+        if (parsed) {
+          const fechaOriginal = fecha;
+          fecha = parsed.toISOString().split('T')[0]; // YYYY-MM-DD
+          console.log(`📅 [parse] "${fechaOriginal}" → "${fecha}"`);
+        } else {
+          return { error: `No pude entender la fecha "${fecha}". Usá formato como "mañana", "sábado 30 de mayo" o "2026-06-02".` };
+        }
+      }
+
       const turnosDia = await db.all('SELECT fecha_turno FROM turnos WHERE DATE(fecha_turno) = ?', fecha);
-      const slotsLibres = await generarSlotsDisponibles(fecha, turnosDia);
+      const slotsLibres = await generarSlotsDisponibles(fecha, turnosDia.map(t => t.fecha_turno));
       return { fecha, slotsLibres, ocupados: turnosDia.map(t => new Date(t.fecha_turno).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })) };
     }
     case 'ver_turnos_paciente': {
@@ -251,7 +274,20 @@ const executeTool = async (toolName, args) => {
       return await db.all('SELECT id, fecha_turno, tipo_turno, estado, notas FROM turnos WHERE numero_telefono = ? AND estado != "cancelado" ORDER BY fecha_turno ASC', numero_telefono);
     }
     case 'agendar_turno': {
-      const { numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas } = args;
+      let { numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas } = args;
+
+      // 📅 Parsear fecha_turno si no está en formato ISO completo
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(fecha_turno) && !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(fecha_turno)) {
+        const parsed = parsearFechaEspañol(fecha_turno);
+        if (parsed) {
+          const fechaOriginal = fecha_turno;
+          fecha_turno = parsed.toISOString();
+          console.log(`📅 [parse] "${fechaOriginal}" → "${fecha_turno}"`);
+        } else {
+          return { error: `No pude entender la fecha "${fecha_turno}". Usá formato como "mañana 3pm" o "sábado 30 de mayo 15:00".` };
+        }
+      }
+
       const existente = await db.get('SELECT id FROM turnos WHERE DATE(fecha_turno) = ? AND TIME(fecha_turno) = TIME(?) AND estado != "cancelado"', fecha_turno, fecha_turno);
       if (existente) throw new Error('Horario no disponible');
       const result = await db.run('INSERT INTO turnos (numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas, estado) VALUES (?, ?, ?, ?, ?, "confirmado")', [numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas || null]);
