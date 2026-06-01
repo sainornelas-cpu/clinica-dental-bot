@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { mensajesAPI } from '../lib/api';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Smartphone, Bot, Clock, User } from 'lucide-react';
+import { Smartphone, Bot, Clock, User, Filter } from 'lucide-react';
 
 // Formatear fecha en español
 const formatearFecha = (fechaStr) => {
@@ -49,6 +50,25 @@ function TabMensajes() {
     refetchInterval: 5000, // Polling cada 5 segundos
     refetchIntervalInBackground: true
   });
+
+  // 🔍 Filtrado por usuario
+  const [telefonoFiltro, setTelefonoFiltro] = useState('');
+  const [usuariosUnicos, setUsuariosUnicos] = useState([]);
+
+  // Extraer usuarios únicos de los mensajes
+  useEffect(() => {
+    if (mensajes && mensajes.length > 0) {
+      const unicos = [...new Set(mensajes.map(m => m.numero_telefono || m.from).filter(Boolean))];
+      setUsuariosUnicos(unicos.sort());
+    } else {
+      setUsuariosUnicos([]);
+    }
+  }, [mensajes]);
+
+  // Filtrar mensajes por teléfono seleccionado
+  const mensajesFiltrados = telefonoFiltro
+    ? mensajes.filter(m => (m.numero_telefono || m.from) === telefonoFiltro)
+    : mensajes;
 
   // Estado de carga
   if (isLoading) {
@@ -98,7 +118,7 @@ function TabMensajes() {
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Mensajes</h2>
           <p className="text-gray-600 mt-1">
-            {mensajes.length} mensaje{mensajes.length !== 1 ? 's' : ''} • Actualizado automáticamente cada 5s
+            {mensajesFiltrados.length} de {mensajes.length} mensaje{mensajes.length !== 1 ? 's' : ''} • Actualizado automáticamente cada 5s
           </p>
         </div>
         <button
@@ -109,11 +129,45 @@ function TabMensajes() {
         </button>
       </div>
 
+      {/* 🔍 Selector de filtro por usuario */}
+      {usuariosUnicos.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <div className="flex items-center gap-4">
+            <Filter className="w-5 h-5 text-gray-500" />
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filtrar por usuario:
+              </label>
+              <select
+                value={telefonoFiltro}
+                onChange={(e) => setTelefonoFiltro(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Todos los usuarios ({mensajes.length})</option>
+                {usuariosUnicos.map(numero => (
+                  <option key={numero} value={numero}>
+                    {numero}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {telefonoFiltro && (
+              <button
+                onClick={() => setTelefonoFiltro('')}
+                className="px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition"
+              >
+                Limpiar filtro
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Lista scrolleable de mensajes */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="max-h-[600px] overflow-y-auto">
           <div className="divide-y divide-gray-100">
-            {mensajes.map((mensaje) => {
+            {mensajesFiltrados.map((mensaje) => {
               const estilo = obtenerEstiloRemitente(mensaje.remitente);
               const nombreRemitente = mensaje.remitente === 'usuario' ? 'Usuario' : 'Sarah';
 

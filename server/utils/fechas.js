@@ -45,6 +45,12 @@ export const parsearFechaEspañol = (texto, fechaBase = new Date()) => {
   const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
   const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
+  // ✅ VALIDACIÓN CRÍTICA: Rechazar palabras de pasado explícito
+  if (text.includes('ayer') || text.includes('anteayer') || text.includes('pasado')) {
+    console.warn(`⚠️ [parsearFechaEspañol] Fecha rechazada: contiene referencia al pasado "${texto}"`);
+    return null;
+  }
+
   // Buscar hora (ej: "5:00 PM", "13:00", "1 pm")
   const horaMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
   let hora = 12; // Default mediodía
@@ -58,6 +64,19 @@ export const parsearFechaEspañol = (texto, fechaBase = new Date()) => {
     if (periodo === 'pm' && hora !== 12) hora += 12;
     if (periodo === 'am' && hora === 12) hora = 0;
   }
+
+  // Función helper para validar que la fecha sea futura
+  const validarFechaFutura = (fecha) => {
+    const ahora = new Date();
+    const margenMinutos = 15; // Margen de 15 minutos para allowing same-day scheduling
+    const limiteMinimo = new Date(ahora.getTime() - margenMinutos * 60000);
+
+    if (fecha < limiteMinimo) {
+      console.warn(`⚠️ [parsearFechaEspañol] Fecha rechazada: ${fecha.toISOString()} es anterior a ${limiteMinimo.toISOString()}`);
+      return null;
+    }
+    return fecha;
+  };
 
   // Buscar fecha específica (ej: "30 de mayo")
   const fechaEspecificaMatch = text.match(/(\d{1,2})\s+de\s+([a-z]+)/i);
@@ -75,8 +94,11 @@ export const parsearFechaEspañol = (texto, fechaBase = new Date()) => {
         fecha.setFullYear(año + 1);
       }
 
-      console.log(`✅ [parsearFechaEspañol] Fecha específica: ${fecha.toISOString()}`);
-      return fecha;
+      const validada = validarFechaFutura(fecha);
+      if (validada) {
+        console.log(`✅ [parsearFechaEspañol] Fecha específica: ${validada.toISOString()}`);
+        return validada;
+      }
     }
   }
 
@@ -94,8 +116,11 @@ export const parsearFechaEspañol = (texto, fechaBase = new Date()) => {
       fecha.setDate(fecha.getDate() + diasParaSumar);
       fecha.setHours(hora, minutos, 0, 0);
 
-      console.log(`✅ [parsearFechaEspañol] Día de semana: ${fecha.toISOString()}`);
-      return fecha;
+      const validada = validarFechaFutura(fecha);
+      if (validada) {
+        console.log(`✅ [parsearFechaEspañol] Día de semana: ${validada.toISOString()}`);
+        return validada;
+      }
     }
   }
 
@@ -104,13 +129,25 @@ export const parsearFechaEspañol = (texto, fechaBase = new Date()) => {
     const fecha = new Date(fechaBase);
     fecha.setDate(fecha.getDate() + 1);
     fecha.setHours(hora, minutos, 0, 0);
-    console.log(`✅ [parsearFechaEspañol] Mañana: ${fecha.toISOString()}`);
-    return fecha;
+
+    const validada = validarFechaFutura(fecha);
+    if (validada) {
+      console.log(`✅ [parsearFechaEspañol] Mañana: ${validada.toISOString()}`);
+      return validada;
+    }
   }
 
   if (text.includes('hoy')) {
     const fecha = new Date(fechaBase);
     fecha.setHours(hora, minutos, 0, 0);
+
+    // Validar que la hora de hoy sea futura
+    const ahora = new Date();
+    if (fecha < ahora) {
+      console.warn(`⚠️ [parsearFechaEspañol] Fecha rechazada: hora de hoy ya pasó "${texto}"`);
+      return null;
+    }
+
     console.log(`✅ [parsearFechaEspañol] Hoy: ${fecha.toISOString()}`);
     return fecha;
   }
