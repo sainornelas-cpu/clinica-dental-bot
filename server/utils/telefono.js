@@ -38,7 +38,17 @@ export const normalizarTelefono = (from) => {
  */
 export const telefonoParaDB = (from) => {
   const normalizado = normalizarTelefono(from);
-  const limpio = normalizado.replace('+', '');
+  let limpio = normalizado.replace('+', '');
+
+  // Si es un número de Argentina (54) sin el 9, agregarlo para formato WhatsApp
+  if (limpio.startsWith('54') && !limpio.startsWith('549') && limpio.length >= 10) {
+    limpio = '549' + limpio.slice(2);
+  }
+  // Si es México (52) sin el 1, agregarlo
+  else if (limpio.startsWith('52') && !limpio.startsWith('521') && limpio.length >= 10) {
+    limpio = '521' + limpio.slice(2);
+  }
+
   console.log(`📊 [telefono] Para DB: "${limpio}"`);
   return limpio;
 };

@@ -107,6 +107,12 @@ Sos Sarah, recepcionista virtual de la Clínica Dental Sonrisa. Sos cálida, pro
 - Si no entendés algo, preguntá de forma amable sin mostrar el menú completo de nuevo.
 - Usá las tools disponibles cuando corresponda, pero priorizá la conversación natural.
 
+⚠️ REGLA CRÍTICA DE DISPONIBILIDAD:
+- Al llamar a consultar_disponibilidad con una fecha, incluí la hora_solicitada si el usuario mencionó una hora específica
+- Si la herramienta retorna confirmado: true → "✅ Sí, disponible. ¿Confirmo?"
+- Si retorna ocupado: true → "⚠️ Ese horario está ocupado. Opciones: [lista]"
+- NUNCA digas "no hay disponibilidad" si el horario está en la lista de slots disponibles
+
 📋 INFORMACIÓN DE LA CLÍNICA:
 - Nombre: {nombre_clinica}
 - Dirección: {direccion}
@@ -159,6 +165,10 @@ const TOOLS = [
           fecha: {
             type: 'string',
             description: 'Fecha preferida (ej: "mañana", "2026-06-02", "sábado 30 de mayo")'
+          },
+          hora_solicitada: {
+            type: 'string',
+            description: 'Hora específica que el usuario quiere (ej: "3pm", "15:00") - Opcional, para confirmación rápida'
           }
         },
         required: ['fecha'],
@@ -267,7 +277,16 @@ const executeTool = async (toolName, args) => {
 
       const turnosDia = await db.all('SELECT fecha_turno FROM turnos WHERE DATE(fecha_turno) = ?', fecha);
       const slotsLibres = await generarSlotsDisponibles(fecha, turnosDia.map(t => t.fecha_turno));
-      return { fecha, slotsLibres, ocupados: turnosDia.map(t => new Date(t.fecha_turno).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })) };
+      const ocupados = turnosDia.map(t => new Date(t.fecha_turno).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }));
+
+      // Si el usuario pidió un horario específico, verificar si está disponible
+      if (args.hora_solicitada && slotsLibres.includes(args.hora_solicitada)) {
+        return { fecha, slotsLibres, ocupados, confirmado: true, mensaje: `✅ Sí, ${args.hora_solicitada} está disponible el ${fecha}. ¿Confirmo el turno?` };
+      }
+      if (args.hora_solicitada && !slotsLibres.includes(args.hora_solicitada)) {
+        return { fecha, slotsLibres, ocupados, ocupado: true, mensaje: `⚠️ ${args.hora_solicitada} ya está ocupado. Horarios disponibles: ${slotsLibres.slice(0,3).join(', ')}` };
+      }
+      return { fecha, slotsLibres, ocupados };
     }
     case 'ver_turnos_paciente': {
       const { numero_telefono } = args;
@@ -400,9 +419,20 @@ Por favor intentá de nuevo en unos minutos, o comunicate con nosotros:
     }
 
     // 🔄 DETECCIÓN DE "MENÚ" O "0" (volver al inicio)
-    if (mensaje.trim().toLowerCase() === 'menú' || mensaje.trim() === '0') {
+    if (mensaje.trim().toLowerCase().match(/^(menú|menu|inicio|empezar|volver|0|principal)$/)) {
       console.log(`🔄 [MENÚ] Usuario pidió volver al menú principal`);
-      mensaje = 'Mostrame el menú principal de opciones';
+      return `¡Hola! 👋 Soy Sarah, recepcionista de la Clínica Dental Sonrisa. ¿En qué puedo ayudarte hoy?
+
+1️⃣ Agendar una nueva cita
+2️⃣ Reagendar una cita existente
+3️⃣ Cancelar una cita
+4️⃣ Ver ubicación
+5️⃣ Horarios de atención
+6️⃣ Servicios disponibles
+7️⃣ Consulta de costos
+8️⃣ Ver mis citas agendadas
+
+👉 Podés responder con el número o contarme directamente qué necesitás. 😊`;
     }
 
     // 🧪 MODO MOCK
