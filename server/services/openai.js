@@ -62,7 +62,7 @@ Sos Sarah, recepcionista virtual de la Clínica Dental Sonrisa. Sos cálida, pro
 
 🎯 FLUJO DE CONVERSACIÓN (REGLA DE ORO):
 1. **PRIMER CONTACTO**: Si es el primer mensaje o el usuario escribe "menú", "inicio" o "ayuda", respondé con:
-   "¡Hola! 👋 Soy Sarah, recepcionista de la Clínica Dental Sonrisa. ¿En qué puedo ayudarte hoy?
+   "{saludo_personalizado}
 
    1️⃣ Agendar una nueva cita
    2️⃣ Reagendar una cita existente
@@ -118,6 +118,14 @@ Sos Sarah, recepcionista virtual de la Clínica Dental Sonrisa. Sos cálida, pro
 - Si retorna ocupado: true → "⚠️ Ese horario está ocupado. Opciones: [lista]"
 - NUNCA digas "no hay disponibilidad" si el horario está en la lista de slots disponibles
 
+🔄 MANEJO DE CONFIRMACIÓN Y CIERRE:
+- Después de confirmar un turno ("¿Confirmo el turno?"), si el usuario responde:
+  • "Si", "Sí", "Confirmo", "OK" → Ejecutar agendamiento y responder con confirmación + cierre amable
+  • "No", "Cancelar", "Mejor no" → Preguntar amablemente si quiere elegir otro horario o cancelar
+  • "Ya terminé", "No sería todo", "Gracias" → Despedirse cordialmente usando su nombre ({nombre_paciente})
+- NUNCA digas "Parece que se repitió tu mensaje" si el usuario responde de forma válida
+- Si el usuario dice "Gracias" o "Adiós", respondé con despedida personalizada y ofrecé ayuda futura
+
 📋 INFORMACIÓN DE LA CLÍNICA:
 - Nombre: {nombre_clinica}
 - Dirección: {direccion}
@@ -138,6 +146,13 @@ Sos Sarah, recepcionista virtual de la Clínica Dental Sonrisa. Sos cálida, pro
 - Al llamar a consultar_disponibilidad o agendar_turno, podés enviar la fecha en lenguaje natural ("mañana", "sábado 30 de mayo 3pm")
 - El sistema la convertirá automáticamente a formato técnico
 - Si el parseo falla, respondé amablemente pidiendo clarificación sin mostrar el menú completo
+
+👋 CIERRE DE CONVERSACIÓN:
+- Si el usuario indica que terminó ("Gracias", "Adiós", "No sería todo", "Hasta luego"):
+  • Usá su nombre ({nombre_paciente}) si lo tenés: "¡Que tengas un excelente día! ✨"
+  • Ofrecé ayuda futura: "Si necesitás algo más, estoy aquí para ayudarte."
+  • No preguntes "¿Hay algo más?" si el usuario ya dijo que terminó
+- Mantené el tono cálido y profesional hasta el final
 
 Nunca inventes información. Si algo requiere validación clínica o precio exacto, derivá al teléfono/email. Mantené el tono humano en todo momento. ✨
 `;
@@ -343,6 +358,22 @@ export const processMessage = async ({ from, mensaje, clinicaConfig, historial }
 
     console.log(`🤖 Sarah: procesando "${mensaje}" de ${from}`);
 
+    // 🔍 VERIFICAR SI ES USUARIO CONOCIDO (al inicio de conversación)
+    let pacienteConocido = null;
+    if (historial.length <= 1 && from) {
+      try {
+        const db = getDb();
+        const numeroDB = telefonoParaDB(from);
+        pacienteConocido = await db.get('SELECT nombre FROM pacientes WHERE numero_telefono = ?', [numeroDB]);
+
+        if (pacienteConocido?.nombre) {
+          console.log(`👤 [Contexto] Usuario reconocido: ${pacienteConocido.nombre}`);
+        }
+      } catch (e) {
+        console.warn('⚠️ No se pudo verificar usuario conocido:', e.message);
+      }
+    }
+
     // 🔧 DETECCIÓN DE SELECCIÓN DE MENÚ (1-8)
     // Si el mensaje es solo un número 1-8 y es temprano en la conversación
     const menuSelection = mensaje.trim().match(/^([1-8])$/);
@@ -426,7 +457,10 @@ Por favor intentá de nuevo en unos minutos, o comunicate con nosotros:
     // 🔄 DETECCIÓN DE "MENÚ" O "0" (volver al inicio)
     if (mensaje.trim().toLowerCase().match(/^(menú|menu|inicio|empezar|volver|0|principal)$/)) {
       console.log(`🔄 [MENÚ] Usuario pidió volver al menú principal`);
-      return `¡Hola! 👋 Soy Sarah, recepcionista de la Clínica Dental Sonrisa. ¿En qué puedo ayudarte hoy?
+      const saludo = pacienteConocido?.nombre
+        ? `¡Hola ${pacienteConocido.nombre.split(' ')[0]}! 👋 ¿En qué puedo ayudarte hoy?`
+        : '¡Hola! 👋 Soy Sarah, recepcionista de la Clínica Dental Sonrisa. ¿En qué puedo ayudarte hoy?';
+      return `${saludo}
 
 1️⃣ Agendar una nueva cita
 2️⃣ Reagendar una cita existente
@@ -453,6 +487,10 @@ Por favor intentá de nuevo en unos minutos, o comunicate con nosotros:
     const providerInfo = getProviderInfo();
     const systemPrompt = SYSTEM_PROMPT
       .replace('{nombre_clinica}', clinicaConfig?.nombre_clinica || 'la clínica')
+      .replace('{nombre_paciente}', pacienteConocido?.nombre ? pacienteConocido.nombre.split(' ')[0] : '')
+      .replace('{saludo_personalizado}', pacienteConocido?.nombre
+        ? `¡Hola ${pacienteConocido.nombre.split(' ')[0]}! 👋 ¿En qué puedo ayudarte hoy?`
+        : '¿En qué puedo ayudarte hoy?')
       .replace('{direccion}', clinicaConfig?.direccion || '')
       .replace('{telefono}', clinicaConfig?.telefono || '')
       .replace('{email}', clinicaConfig?.email || '')
