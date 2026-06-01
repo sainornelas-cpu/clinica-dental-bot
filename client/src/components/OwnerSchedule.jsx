@@ -63,11 +63,19 @@ export default function OwnerSchedule() {
     setError('');
     setSuccess('');
 
-    // Validar que fecha sea futura
-    const fechaObj = new Date(formData.fecha_turno);
+    // Validar que la fecha sea futura
+    const fechaSeleccionada = new Date(formData.fecha_turno);
     const ahora = new Date();
-    if (fechaObj < ahora) {
-      setError('No se pueden agendar turnos en el pasado');
+
+    if (fechaSeleccionada <= ahora) {
+      setError('❌ No se pueden agendar turnos en el pasado. Por favor, seleccioná una fecha y hora futuras.');
+      return;
+    }
+
+    // Validar horario de atención (9:00 - 18:00)
+    const hora = fechaSeleccionada.getHours();
+    if (hora < 9 || hora >= 18) {
+      setError('⚠️ La clínica atiende de 9:00 a 18:00. Por favor, seleccioná un horario dentro de este rango.');
       return;
     }
 
@@ -102,6 +110,19 @@ export default function OwnerSchedule() {
       {/* Formulario para agendar turno */}
       {showForm && (
         <div className="bg-white rounded-lg shadow-sm p-6">
+          {/* Indicador de fecha mínima */}
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-sm text-blue-800">
+              📅 <strong>Fecha mínima permitida:</strong> {new Date().toLocaleString('es-AR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </p>
+          </div>
+
           <h3 className="text-lg font-semibold mb-4">Agendar Nuevo Turno</h3>
 
           {error && <div className="bg-red-100 text-red-700 p-3 rounded-md mb-4">{error}</div>}
@@ -146,10 +167,11 @@ export default function OwnerSchedule() {
                   value={formData.fecha_turno}
                   onChange={(e) => setFormData({ ...formData, fecha_turno: e.target.value })}
                   min={minDateTime}
+                  step="60"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">Solo fechas futuras</p>
+                <p className="text-xs text-gray-500 mt-1">💡 Solo fechas y horarios futuros permitidos</p>
               </div>
 
               <div>
