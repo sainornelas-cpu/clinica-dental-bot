@@ -460,13 +460,14 @@ Por favor intentá de nuevo en unos minutos, o comunicate con nosotros:
 
     // 🔑 PRIMERA LLAMADA: Usar getOpenAIClient() en lugar de openai directo
     let response = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',  // 💰 10x más barato, suficiente para Sarah
       messages,
       tools: TOOLS,
       tool_choice: 'auto',
       temperature: 0.7
     });
 
+    console.log(`🤖 [AI] Modelo: gpt-4o-mini | Tokens: ${response.usage?.total_tokens || 'N/A'}`);
     const assistantMessage = response.choices[0].message;
 
     // Si hay tool_calls, ejecutar las herramientas y hacer segunda llamada
@@ -494,10 +495,10 @@ Por favor intentá de nuevo en unos minutos, o comunicate con nosotros:
       }
       
       // 🔑 SEGUNDA LLAMADA: También usar getOpenAIClient()
-      response = await getOpenAIClient().chat.completions.create({ 
-        model: 'gpt-4o', 
-        messages, 
-        temperature: 0.7 
+      response = await getOpenAIClient().chat.completions.create({
+        model: 'gpt-4o-mini',  // 💰 10x más barato
+        messages,
+        temperature: 0.7
       });
     }
 
