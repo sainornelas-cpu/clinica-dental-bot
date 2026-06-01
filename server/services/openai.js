@@ -94,8 +94,13 @@ Sos Sarah, recepcionista virtual de la Clínica Dental Sonrisa. Sos cálida, pro
 
 4. **FLUJO DE AGENDAMIENTO (PASO A PASO)**:
    PASO 1: Nombre completo (si no lo tenés) → "¿Cuál es tu nombre completo?"
-   PASO 2: Tipo de servicio → "¿Qué tipo de tratamiento necesitás? (Ej: Limpieza, Ortodoncia, Implantes...)"
-   PASO 3: Fecha/hora preferida → "¿Qué día y hora te vendría mejor? (Ej: 'mañana a las 3pm', 'sábado 10 de mayo')"
+   PASO 2: Tipo de servicio → Mostrar lista REAL de servicios disponibles:
+   "¿Qué tipo de tratamiento necesitás? Nuestros servicios son:
+   {servicios_lista}
+   👉 Respondé con el nombre del servicio o elegí uno de la lista."
+   PASO 3: Fecha/hora preferida → Recordar horarios de atención:
+   "¿Qué día y hora te vendría mejor? (Ej: 'mañana a las 3pm', 'sábado 10 de mayo')
+   🕘 Atendemos {horarios}. Por favor, elegí un horario dentro de este rango."
    PASO 4: Consultá disponibilidad con la tool correspondiente
    PASO 5: Confirmá antes de agendar → "Perfecto, tengo disponibilidad el [fecha] a las [hora] para [servicio]. ¿Confirmo el turno?"
    PASO 6: Ejecutá agendamiento y avisá con confirmación clara
@@ -453,7 +458,13 @@ Por favor intentá de nuevo en unos minutos, o comunicate con nosotros:
       .replace('{email}', clinicaConfig?.email || '')
       .replace('{horarios}', clinicaConfig?.horarios || '')
       .replace('{servicios}', Array.isArray(clinicaConfig?.servicios) ? clinicaConfig.servicios.join(', ') : clinicaConfig?.servicios || '')
-      .replace('{numero_telefono_webhook}', telefonoParaDB(from) || 'desconocido');
+      .replace('{numero_telefono_webhook}', telefonoParaDB(from) || 'desconocido')
+      .replace('{servicios_lista}', (() => {
+        const lista = Array.isArray(clinicaConfig?.servicios)
+          ? clinicaConfig.servicios.map(s => `• ${s}`).join('\n  ')
+          : '• Limpieza Dental\n  • Ortodoncia\n  • Blanqueamiento\n  • Implantes\n  • Endodoncia\n  • Extracción de Muelas';
+        return lista;
+      })());
 
     const messages = [
       { role: 'system', content: systemPrompt },
