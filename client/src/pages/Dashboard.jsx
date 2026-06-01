@@ -9,6 +9,7 @@ import 'react-tabs/style/react-tabs.css';
 import TabMensajes from '../components/TabMensajes';
 import TabTurnos from '../components/TabTurnos';
 import TabConfiguracion from '../components/TabConfiguracion';
+import OwnerSchedule from '../components/OwnerSchedule';
 
 // Página Dashboard - Panel de gestión principal
 function Dashboard() {
@@ -58,6 +59,12 @@ function Dashboard() {
               className="px-6 py-3 font-medium cursor-pointer border-b-2 border-transparent hover:border-blue-300 focus:outline-none transition-colors"
               selectedClassName="text-blue-600 border-blue-600"
             >
+              👤 Owner Schedule
+            </Tab>
+            <Tab
+              className="px-6 py-3 font-medium cursor-pointer border-b-2 border-transparent hover:border-blue-300 focus:outline-none transition-colors"
+              selectedClassName="text-blue-600 border-blue-600"
+            >
               ⚙️ Configuración
             </Tab>
           </TabList>
@@ -69,6 +76,10 @@ function Dashboard() {
 
           <TabPanel>
             <TabTurnos />
+          </TabPanel>
+
+          <TabPanel>
+            <OwnerSchedule />
           </TabPanel>
 
           <TabPanel>

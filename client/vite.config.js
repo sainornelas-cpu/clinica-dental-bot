@@ -5,6 +5,18 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   base: '/', // Para servir desde root en producción
+  build: {
+    // Cache-busting: agregar hash a los nombres de archivo
+    rollupOptions: {
+      output: {
+        entryFileNames: `assets/[name]-[hash].js`,
+        chunkFileNames: `assets/[name]-[hash].js`,
+        assetFileNames: `assets/[name]-[hash].[ext]`
+      }
+    },
+    // Asegurar que el build sea limpio
+    emptyOutDir: true
+  },
   server: {
     port: 5173,
     open: true,

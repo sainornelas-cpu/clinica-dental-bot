@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { turnosAPI } from '../lib/api';
-import { Calendar, User, Phone, Clock, Tooth, Trash2, Edit2, Check, X } from 'lucide-react';
+import { Calendar, User, Phone, Clock, Activity, Trash2, Edit2, Check, X } from 'lucide-react';
 
 // Formatear fecha para input datetime-local
 const formatDateTimeLocal = (dateStr) => {
@@ -154,7 +154,7 @@ export default function OwnerSchedule() {
 
               <div>
                 <label className="block text-sm font-medium mb-1 flex items-center gap-2">
-                  <Tooth className="w-4 h-4" /> Tipo de tratamiento
+                  <Activity className="w-4 h-4" /> Tipo de tratamiento
                 </label>
                 <select
                   value={formData.tipo_turno}

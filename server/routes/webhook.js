@@ -41,29 +41,52 @@ router.post('/whatsapp', async (req, res) => {
       [from, respuestaIA, 'asistente', respuestaIA]
     );
 
+    // Escapar caracteres especiales para XML
+    const escapeXML = (str) => {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    };
+
+    const respuestaEscapada = escapeXML(respuestaIA);
+
     // TwiML para Twilio
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Message><Body>${respuestaIA}</Body></Message>
+  <Message>
+    <Body>${respuestaEscapada}</Body>
+  </Message>
 </Response>`;
 
     const duration = Date.now() - startTime;
-    console.log(`📤 [Webhook] Enviando a Twilio:`, {
-      status: 200,
-      duration: `${duration}ms`,
-      response_length: respuestaIA.length
-    });
 
-    res.set('Content-Type', 'text/xml').send(twiml);
+    console.log('📤 [Webhook] === DETALLES DE RESPUESTA ===');
+    console.log('Status: 200');
+    console.log('Content-Type: text/xml');
+    console.log('To:', from);
+    console.log('Message Length:', respuestaIA.length);
+    console.log('Duration:', duration + 'ms');
+    console.log('TwiML Preview:', twiml.substring(0, 200) + '...');
+    console.log('======================================');
+
+    res.set('Content-Type', 'text/xml').status(200).send(twiml);
 
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error(`❌ [Webhook] Error (${duration}ms):`, error.message);
+    console.error('Stack trace:', error.stack);
 
+    // TwiML de error
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Message><Body>Disculpá, estoy teniendo problemas técnicos. Intentá de nuevo en unos minutos.</Body></Message>
+  <Message>
+    <Body>Disculpá, estoy teniendo problemas técnicos. Intentá de nuevo en unos minutos.</Body>
+  </Message>
 </Response>`;
+
     res.set('Content-Type', 'text/xml').status(500).send(twiml);
   }
 });
