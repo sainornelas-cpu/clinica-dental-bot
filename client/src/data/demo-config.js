@@ -18,7 +18,7 @@ export const demoConfig = {
   clinica: {
     nombre: "Dr. Baltierres",
     slogan: "Tu atencion y seguridad es nuestra prioridad",
-    telefono: "+54 9 11 1234-5678",
+    telefono: "665 104 5317 ",
     email: "contacto@clinicasonrisa.com",
     direccion: "Av. Corrientes 1234, CABA",
     whatsapp: "5491112345678", // Sin el + ni espacios
