@@ -24,10 +24,14 @@ export const generarSlotsDisponibles = (fechaYYYYMMDD, turnosOcupados) => {
   // Solo slots de 1 hora (XX:00), no de 30 minutos
   for (let hora = horaInicio; hora < horaFin; hora++) {
     const slotTime = `${hora.toString().padStart(2, '0')}:00`;
-    const slotDateTime = `${fechaYYYYMMDD}T${slotTime}:00`;
-    const ocupado = turnosOcupados.some(t =>
-      new Date(t.fecha_turno).toISOString().slice(0, 16) === slotDateTime
-    );
+
+    // Verificar si este slot está ocupado comparando solo hora:minuto
+    const ocupado = turnosOcupados.some(t => {
+      const turnoDate = new Date(t.fecha_turno);
+      const turnoHora = `${turnoDate.getHours().toString().padStart(2, '0')}:${turnoDate.getMinutes().toString().padStart(2, '0')}`;
+      return turnoHora === slotTime;
+    });
+
     if (!ocupado) slots.push(slotTime);
   }
   return slots;
