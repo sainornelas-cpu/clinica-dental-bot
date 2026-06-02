@@ -16,7 +16,7 @@ export const esFechaValida = (fechaStr) => {
   return fecha >= hoy;
 };
 
-export const generarSlotsDisponibles = async (fechaYYYYMMDD, turnosOcupados) => {
+export const generarSlotsDisponibles = (fechaYYYYMMDD, turnosOcupados) => {
   const slots = [];
   const horaInicio = 9;  // 9:00 AM
   const horaFin = 18;    // 18:00 PM (último turno 17:00)
