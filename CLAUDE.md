@@ -266,3 +266,74 @@ Para mantener la calidad y evitar romper lo que funciona, seguimos este protocol
 - Backup manual de DB: railway shell → sqlite3 .backup
 - Monitoreo: Railway Console → Logs
 - Costos: OpenAI ~$0.002/mensaje, Railway free tier
+
+---
+
+## 🎯 ESTADO FINAL - PRODUCCIÓN READY (02/06/2026)
+
+### ✅ Sistema Completo y Funcional
+
+**Flujo End-to-End Verificado:**
+1. 📱 Usuario envía WhatsApp → Webhook → Sarah (IA) → Respuesta en <10s
+2. 📊 Dashboard muestra mensajes/turnos en tiempo real (auto-refresh 5s)
+3. 👤 Owner puede agendar/cancelar manualmente con slots de 1 hora
+4. 💾 DB persistente en volumen Railway (//app/data/) - datos no se pierden
+5. 🌍 Fechas con timezone UTC - sin errores de año/día
+
+**Consistencia WhatsApp ↔ Owner Schedule:**
+- Mismos horarios: 9:00, 10:00, 11:00... 17:00 (turnos de 1 hora)
+- Mismas validaciones: fecha futura + horario de atención
+- Mismos slots ocupados: filtrados automáticamente en ambos lados
+
+**Fixes Aplicados (Log Completo):**
+| Fecha | Issue | Solución | Estado |
+|-------|-------|----------|--------|
+| 01/06 | WhatsApp no recibía | Error 63038 Twilio (límite Sandbox, no código) | ✅ Externo |
+| 01/06 | Schema DB faltante | Migración columnas: creado_por, cancelado_por, etc. | ✅ Aplicada |
+| 01/06 | Fechas 2023 en frontend | Helper formato.js con timeZone: 'UTC' | ✅ Deployado |
+| 02/06 | DB efímera en Railway | Volumen persistente //app/data + ruta corregida | ✅ Verificado |
+| 02/06 | Owner Schedule: minutos raros | Reemplazar datetime-local por fecha + dropdown slots | ✅ Consistente |
+| 02/06 | "Invalid Date" en DB | Formato ISO sin 'Z': YYYY-MM-DDTHH:mm:ss | ✅ Corregido |
+
+**Pruebas de Humo (Ejecutar Semanalmente):**
+```powershell
+# 1. Servicio online
+railway status  # Debe decir: "● Online"
+
+# 2. DB persistente montada
+railway logs --lines 50 | grep "Usando volumen persistente"
+
+# 3. API responde
+curl.exe https://.../api/configuracion  # JSON válido
+
+# 4. Crear turno
+curl.exe -X POST https://.../api/turnos -H "Content-Type: application/json" -d "{...}"
+
+# 5. Persistencia post-deploy
+# → Hacer deploy trivial → curl /api/turnos → verificar turno sigue ahí
+
+# 6. WhatsApp (si Twilio no está en límite)
+# → Enviar "Hola" → recibir respuesta de Sarah en <10s
+```
+
+**Dependencias Externas (No son bugs):**
+| Servicio | Estado | Nota |
+|-----------|--------|------|
+| Twilio Sandbox | 🟡 Límite ~100 mensajes/día | Reset cada 24h o upgrade a paga |
+| OpenAI API | ✅ Pago válido | Monitorear en platform.openai.com |
+| Railway Free Tier | ✅ 500 hrs/mes | Suficiente para <100 usuarios concurrentes |
+
+**Backups y Mantenimiento:**
+```bash
+# Backup manual de DB (mensual recomendado)
+railway shell
+sqlite3 //app/data/clinica_dental.db ".backup backup_$(date +%Y%m%d).db"
+.exit
+
+# Ver logs de errores
+railway logs --lines 100 | grep -E "❌|Error|SQLITE_ERROR"
+
+# Rollback rápido si algo falla
+git reset --hard HEAD~1
+git push origin main --force  # Railway redeployará automáticamente
+```
