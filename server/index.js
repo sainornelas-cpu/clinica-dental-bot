@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { conectarBaseDeDatos } from './db.js';
 import webhookRouter from './routes/webhook.js';
 import turnosRouter from './routes/turnos.js';
+import debugRouter from './routes/debug.js';
 import mensajesRouter from './routes/mensajes.js';
 import configuracionRouter from './routes/configuracion.js';
 
@@ -28,6 +29,7 @@ conectarBaseDeDatos()
   .then(() => {
     app.use('/api/webhook', webhookRouter);
     app.use('/api/turnos', turnosRouter);
+    app.use('/api/debug', debugRouter);
     app.use('/api/mensajes', mensajesRouter);
     app.use('/api/configuracion', configuracionRouter);
 
