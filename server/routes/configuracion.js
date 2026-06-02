@@ -16,15 +16,21 @@ router.get('/', async (req, res) => {
 router.put('/', async (req, res) => {
   try {
     const db = getDb();
-    const { nombre_clinica, direccion, telefono, email, horarios, servicios, sobre_clinica, webhook_url } = req.body;
+    const {
+      nombre_clinica, direccion, telefono, email, horarios, servicios, sobre_clinica, webhook_url,
+      fecha_cierre_inicio, fecha_cierre_fin, facebook_url, instagram_url, google_maps_url
+    } = req.body;
     await db.run(`
-      UPDATE configuracion_clinica SET 
-        nombre_clinica=?, direccion=?, telefono=?, email=?, 
-        horarios=?, servicios=?, sobre_clinica=?, webhook_url=? 
+      UPDATE configuracion_clinica SET
+        nombre_clinica=?, direccion=?, telefono=?, email=?,
+        horarios=?, servicios=?, sobre_clinica=?, webhook_url=?,
+        fecha_cierre_inicio=?, fecha_cierre_fin=?, facebook_url=?, instagram_url=?, google_maps_url=?
       WHERE id=1
     `, [
-      nombre_clinica, direccion, telefono, email, 
-      horarios, JSON.stringify(servicios), sobre_clinica, webhook_url
+      nombre_clinica, direccion, telefono, email,
+      horarios, JSON.stringify(servicios), sobre_clinica, webhook_url,
+      fecha_cierre_inicio || null, fecha_cierre_fin || null,
+      facebook_url || null, instagram_url || null, google_maps_url || null
     ]);
     res.json({ message: 'Configuración actualizada' });
   } catch (err) {

@@ -82,17 +82,40 @@ export const conectarBaseDeDatos = async () => {
       horarios TEXT,
       servicios TEXT,
       sobre_clinica TEXT,
-      webhook_url TEXT
+      webhook_url TEXT,
+      fecha_cierre_inicio TEXT,
+      fecha_cierre_fin TEXT,
+      facebook_url TEXT,
+      instagram_url TEXT,
+      google_maps_url TEXT
     );
   `);
-  
+
+  // Migración: Agregar nuevas columnas si no existen (para bases de datos existentes)
+  try {
+    await db.exec(`ALTER TABLE configuracion_clinica ADD COLUMN fecha_cierre_inicio TEXT;`);
+  } catch (e) { /* Columna ya existe */ }
+  try {
+    await db.exec(`ALTER TABLE configuracion_clinica ADD COLUMN fecha_cierre_fin TEXT;`);
+  } catch (e) { /* Columna ya existe */ }
+  try {
+    await db.exec(`ALTER TABLE configuracion_clinica ADD COLUMN facebook_url TEXT;`);
+  } catch (e) { /* Columna ya existe */ }
+  try {
+    await db.exec(`ALTER TABLE configuracion_clinica ADD COLUMN instagram_url TEXT;`);
+  } catch (e) { /* Columna ya existe */ }
+  try {
+    await db.exec(`ALTER TABLE configuracion_clinica ADD COLUMN google_maps_url TEXT;`);
+  } catch (e) { /* Columna ya existe */ }
+
   // Seed de configuración
   const configExistente = await db.get('SELECT COUNT(*) as total FROM configuracion_clinica');
   if (configExistente.total === 0) {
     await db.run(`
       INSERT INTO configuracion_clinica (
-        nombre_clinica, direccion, telefono, email, horarios, servicios, sobre_clinica, webhook_url
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        nombre_clinica, direccion, telefono, email, horarios, servicios, sobre_clinica, webhook_url,
+        fecha_cierre_inicio, fecha_cierre_fin, facebook_url, instagram_url, google_maps_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       'Clínica Dental Sonrisa',
       'Av. Corrientes 1234, CABA',
@@ -101,6 +124,11 @@ export const conectarBaseDeDatos = async () => {
       'Lunes a Viernes: 9:00 - 18:00',
       JSON.stringify(['Limpieza Dental', 'Ortodoncia', 'Implantes', 'Blanqueamiento', 'Extracción de Muelas']),
       'Somos una clínica dental comprometida con tu sonrisa. Contamos con profesionales de vanguardia y tecnología de punta.',
+      null,
+      null,
+      null,
+      null,
+      null,
       null
     ]);
   }

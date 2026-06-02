@@ -16,8 +16,8 @@ export const demoConfig = {
   // 🏥 DATOS DE LA CLÍNICA
   // ==========================================
   clinica: {
-    nombre: "Clínica Dental Sonrisa",
-    slogan: "Tu sonrisa, nuestra prioridad",
+    nombre: "Dr. Baltierres",
+    slogan: "Tu atencion y seguridad es nuestra prioridad",
     telefono: "+54 9 11 1234-5678",
     email: "contacto@clinicasonrisa.com",
     direccion: "Av. Corrientes 1234, CABA",

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { configuracionAPI } from '../lib/api';
-import { Save, Copy, Check, X, Webhook, Settings, Building2, Mail, Phone, Clock, FileText } from 'lucide-react';
+import { Save, Copy, Check, X, Webhook, Settings, Building2, Mail, Phone, Clock, FileText, Calendar, MapPin, Facebook, Instagram } from 'lucide-react';
 
 // URL del webhook: desarrollo localhost, producción URL relativa
 const WEBHOOK_URL = import.meta.env.DEV
@@ -20,7 +20,12 @@ function TabConfiguracion() {
     email: '',
     horarios: '',
     servicios: '',
-    sobre_clinica: ''
+    sobre_clinica: '',
+    fecha_cierre_inicio: '',
+    fecha_cierre_fin: '',
+    facebook_url: '',
+    instagram_url: '',
+    google_maps_url: ''
   });
 
   // Cargar configuración inicial
@@ -41,7 +46,12 @@ function TabConfiguracion() {
         servicios: Array.isArray(config.servicios)
           ? config.servicios.join('\n')
           : (config.servicios || ''),
-        sobre_clinica: config.sobre_clinica || ''
+        sobre_clinica: config.sobre_clinica || '',
+        fecha_cierre_inicio: config.fecha_cierre_inicio || '',
+        fecha_cierre_fin: config.fecha_cierre_fin || '',
+        facebook_url: config.facebook_url || '',
+        instagram_url: config.instagram_url || '',
+        google_maps_url: config.google_maps_url || ''
       });
     }
   }, [config]);
@@ -330,6 +340,115 @@ function TabConfiguracion() {
             </div>
           </div>
 
+          {/* ==========================================
+              📅 DÍAS DE CIERRE / VACACIONES
+          ========================================== */}
+          <div className="border-t border-gray-200 pt-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-orange-100 p-2 rounded-lg">
+                <Calendar className="w-6 h-6 text-orange-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">Días de Cierre / Vacaciones</h3>
+                <p className="text-sm text-gray-600">
+                  Durante este rango, Sarah informará que la clínica está cerrada
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Fecha Inicio
+                </label>
+                <input
+                  type="date"
+                  name="fecha_cierre_inicio"
+                  value={formData.fecha_cierre_inicio}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Fecha Fin
+                </label>
+                <input
+                  type="date"
+                  name="fecha_cierre_fin"
+                  value={formData.fecha_cierre_fin}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ==========================================
+               🌐 REDES SOCIALES Y UBICACIÓN
+          ========================================== */}
+          <div className="border-t border-gray-200 pt-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-pink-100 p-2 rounded-lg">
+                <MapPin className="w-6 h-6 text-pink-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">Redes Sociales y Ubicación</h3>
+                <p className="text-sm text-gray-600">
+                  Enlaces para el Demo y contacto con pacientes
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Facebook className="w-4 h-4 text-blue-600" />
+                  Facebook URL
+                </label>
+                <input
+                  type="url"
+                  name="facebook_url"
+                  value={formData.facebook_url}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://facebook.com/tu-clinica"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Instagram className="w-4 h-4 text-pink-600" />
+                  Instagram URL
+                </label>
+                <input
+                  type="url"
+                  name="instagram_url"
+                  value={formData.instagram_url}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://instagram.com/tu-clinica"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-red-600" />
+                  Google Maps URL
+                </label>
+                <input
+                  type="url"
+                  name="google_maps_url"
+                  value={formData.google_maps_url}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://maps.google.com/..."
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Botón guardar */}
           <div className="flex items-center justify-end gap-3">
             <button
@@ -345,7 +464,12 @@ function TabConfiguracion() {
                     servicios: Array.isArray(config.servicios)
                       ? config.servicios.join('\n')
                       : (config.servicios || ''),
-                    sobre_clinica: config.sobre_clinica || ''
+                    sobre_clinica: config.sobre_clinica || '',
+                    fecha_cierre_inicio: config.fecha_cierre_inicio || '',
+                    fecha_cierre_fin: config.fecha_cierre_fin || '',
+                    facebook_url: config.facebook_url || '',
+                    instagram_url: config.instagram_url || '',
+                    google_maps_url: config.google_maps_url || ''
                   });
                 }
               }}
