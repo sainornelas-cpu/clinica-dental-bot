@@ -8,7 +8,12 @@ import { Calendar, List, CheckCircle, Clock, XCircle, CircleDot } from 'lucide-r
 // Formatear fecha y hora en español
 const formatearFechaHora = (fechaStr) => {
   try {
-    return format(new Date(fechaStr), 'EEEE dd/MM/yyyy - HH:mm', { locale: es });
+    const fecha = new Date(fechaStr);
+    // 🔍 DIAGNÓSTICO: Verificar año de la fecha
+    if (fecha.getFullYear() < 2024) {
+      console.warn(`⚠️ [Fecha] Turno con año antiguo: ${fechaStr} → ${fecha.getFullYear()}`);
+    }
+    return format(fecha, 'EEEE dd/MM/yyyy - HH:mm', { locale: es });
   } catch {
     return fechaStr;
   }

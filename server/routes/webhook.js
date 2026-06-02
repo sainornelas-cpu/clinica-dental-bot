@@ -33,7 +33,19 @@ router.post('/whatsapp', async (req, res) => {
 
     // Procesar con IA
     console.log(`🤖 [Webhook] Procesando mensaje con IA...`);
-    const respuestaIA = await processMessage({ from, mensaje, clinicaConfig, historial });
+    let respuestaIA = await processMessage({ from, mensaje, clinicaConfig, historial });
+
+    // Validar que respuestaIA no sea null/undefined
+    if (!respuestaIA || respuestaIA.trim() === '') {
+      console.error('❌ [Webhook] Respuesta vacía o null');
+      respuestaIA = 'Disculpá, tuve un error. Intentá de nuevo.';
+    }
+
+    // Validar longitud (Twilio limita a 1600 caracteres aprox)
+    if (respuestaIA.length > 1600) {
+      console.warn(`⚠️ [Webhook] Respuesta muy larga: ${respuestaIA.length} chars. Truncando...`);
+      respuestaIA = respuestaIA.substring(0, 1550) + '... [mensaje truncado]';
+    }
 
     // Guardar respuesta de la IA
     await db.run(
@@ -41,38 +53,48 @@ router.post('/whatsapp', async (req, res) => {
       [from, respuestaIA, 'asistente', respuestaIA]
     );
 
-    // Escapar caracteres especiales para XML
+    // Escape XML robusto
     const escapeXML = (str) => {
+      if (!str) return '';
       return str
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
+        .replace(/'/g, '&apos;')
+        .replace(/\n/g, ' ')  // Twilio no soporta saltos de línea en SMS
+        .replace(/\r/g, '');
     };
 
     const respuestaEscapada = escapeXML(respuestaIA);
 
-    // TwiML para Twilio
+    // TwiML EXACTO que Twilio espera (formato corto)
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Message>
-    <Body>${respuestaEscapada}</Body>
-  </Message>
+  <Message>${respuestaEscapada}</Message>
 </Response>`;
 
     const duration = Date.now() - startTime;
 
-    console.log('📤 [Webhook] === DETALLES DE RESPUESTA ===');
+    console.log('📤 [Webhook] === ENVIANDO A TWILIO ===');
     console.log('Status: 200');
     console.log('Content-Type: text/xml');
-    console.log('To:', from);
+    console.log('Recipient:', from);
     console.log('Message Length:', respuestaIA.length);
+    console.log('Message Preview:', respuestaIA.substring(0, 100) + '...');
+    console.log('TwiML Length:', twiml.length);
     console.log('Duration:', duration + 'ms');
-    console.log('TwiML Preview:', twiml.substring(0, 200) + '...');
-    console.log('======================================');
+    console.log('========================');
 
-    res.set('Content-Type', 'text/xml').status(200).send(twiml);
+    // Enviar CON status explícito
+    res.set('Content-Type', 'text/xml');
+    res.status(200);
+    res.send(twiml);
+
+    // Logging DESPUÉS de enviar
+    setTimeout(() => {
+      console.log('✅ [Webhook] Respuesta enviada a Twilio');
+    }, 100);
 
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -82,9 +104,7 @@ router.post('/whatsapp', async (req, res) => {
     // TwiML de error
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Message>
-    <Body>Disculpá, estoy teniendo problemas técnicos. Intentá de nuevo en unos minutos.</Body>
-  </Message>
+  <Message>Disculpá, estoy teniendo problemas técnicos. Intentá de nuevo en unos minutos.</Message>
 </Response>`;
 
     res.set('Content-Type', 'text/xml').status(500).send(twiml);

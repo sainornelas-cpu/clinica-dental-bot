@@ -5,11 +5,18 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const db = getDb();
-    const turnos = await db.all('SELECT * FROM turnos ORDER BY fecha_turno DESC');
+    const turnos = await db.all(
+      `SELECT id, numero_telefono, nombre_paciente, fecha_turno, tipo_turno, estado, creado_por
+       FROM turnos
+       WHERE estado != 'cancelado'
+       ORDER BY fecha_turno ASC`
+    );
+
+    console.log(`📊 [Owner] Obtenidos ${turnos.length} turnos activos`);
     res.json(turnos);
-  } catch (err) {
-    console.error('❌ Error en GET /api/turnos:', err);
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    console.error('❌ [Owner] Error obteniendo turnos:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -31,6 +38,13 @@ router.post('/', async (req, res) => {
   try {
     const { numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas } = req.body;
 
+    console.log('📝 [Owner] Agendando turno:', {
+      numero_telefono,
+      nombre_paciente,
+      fecha_turno,
+      tipo_turno
+    });
+
     // Validar campos requeridos
     if (!numero_telefono || !nombre_paciente || !fecha_turno || !tipo_turno) {
       return res.status(400).json({
@@ -42,7 +56,7 @@ router.post('/', async (req, res) => {
     // Validar que fecha sea futura
     const fechaObj = new Date(fecha_turno);
     const ahora = new Date();
-    if (fechaObj < ahora) {
+    if (fechaObj <= ahora) {
       return res.status(400).json({
         error: 'No se pueden agendar turnos en el pasado',
         fecha_solicitada: fecha_turno,
@@ -63,8 +77,8 @@ router.post('/', async (req, res) => {
 
     // Insertar turno
     const result = await db.run(
-      `INSERT INTO turnos (numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas, estado, creado_por)
-       VALUES (?, ?, ?, ?, ?, 'confirmado', 'owner')`,
+      `INSERT INTO turnos (numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas, estado, creado_por, creado_en)
+       VALUES (?, ?, ?, ?, ?, 'confirmado', 'owner', CURRENT_TIMESTAMP)`,
       [numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas || '']
     );
 
@@ -73,10 +87,10 @@ router.post('/', async (req, res) => {
     res.json({
       success: true,
       id: result.lastID,
-      mensaje: `Turno agendado para ${nombre_paciente} el ${fecha_turno}`
+      mensaje: `Turno agendado para ${nombre_paciente}`
     });
   } catch (error) {
-    console.error('❌ [Error] Creando turno desde dashboard:', error);
+    console.error('❌ [Owner] Error agendando turno:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -89,14 +103,18 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const db = getDb();
 
+    console.log(`🗑️ [Owner] Cancelando turno ID: ${id}`);
+
     // Verificar que el turno existe
     const turno = await db.get('SELECT id, nombre_paciente FROM turnos WHERE id = ?', [id]);
     if (!turno) {
+      console.error(`❌ [Owner] Turno ${id} no encontrado`);
       return res.status(404).json({ error: 'Turno no encontrado' });
     }
 
+    // Cancelar
     await db.run(
-      'UPDATE turnos SET estado = "cancelado", cancelado_por = "owner" WHERE id = ?',
+      'UPDATE turnos SET estado = "cancelado", cancelado_por = "owner", cancelado_en = CURRENT_TIMESTAMP WHERE id = ?',
       [id]
     );
 
@@ -104,7 +122,7 @@ router.delete('/:id', async (req, res) => {
 
     res.json({ success: true, mensaje: 'Turno cancelado exitosamente' });
   } catch (error) {
-    console.error('❌ [Error] Cancelando turno:', error);
+    console.error('❌ [Owner] Error cancelando turno:', error);
     res.status(500).json({ error: error.message });
   }
 });
