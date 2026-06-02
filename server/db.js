@@ -7,9 +7,12 @@ import { mkdirSync, existsSync } from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Detectar si estamos en Railway (producción)
+const isRailway = process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production';
+
 // Ruta persistente para Railway (volumen montado en /app/data)
 // En local usa clinica_dental.db, en producción usa /app/data/clinica_dental.db
-const dbPath = process.env.DATABASE_URL || path.join(__dirname, '..', 'clinica_dental.db');
+const dbPath = isRailway ? '/app/data/clinica_dental.db' : (process.env.DATABASE_URL || path.join(__dirname, '..', 'clinica_dental.db'));
 
 // Asegurar que el directorio del volumen existe antes de conectar
 if (dbPath.startsWith('/app/')) {
@@ -18,6 +21,9 @@ if (dbPath.startsWith('/app/')) {
     mkdirSync(dbDir, { recursive: true });
     console.log(`📁 [DB] Directorio creado: ${dbDir}`);
   }
+  console.log(`💾 [DB] Usando volumen persistente: ${dbPath}`);
+} else {
+  console.log(`💾 [DB] Usando DB local: ${dbPath}`);
 }
 
 let db;
