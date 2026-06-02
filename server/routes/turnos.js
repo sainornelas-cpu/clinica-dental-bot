@@ -20,17 +20,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:fecha', async (req, res) => {
-  try {
-    const db = getDb();
-    const turnos = await db.all('SELECT * FROM turnos WHERE DATE(fecha_turno) = ?', req.params.fecha);
-    res.json(turnos);
-  } catch (err) {
-    console.error('❌ Error en GET /api/turnos/:fecha:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ==========================================
 // 🕐 OWNER SCHEDULING: Obtener slots disponibles
 // ==========================================
@@ -85,6 +74,17 @@ router.get('/slots', async (req, res) => {
   } catch (error) {
     console.error('❌ [Owner/Slots] Error:', error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/:fecha', async (req, res) => {
+  try {
+    const db = getDb();
+    const turnos = await db.all('SELECT * FROM turnos WHERE DATE(fecha_turno) = ?', req.params.fecha);
+    res.json(turnos);
+  } catch (err) {
+    console.error('❌ Error en GET /api/turnos/:fecha:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
