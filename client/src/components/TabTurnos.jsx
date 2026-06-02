@@ -4,22 +4,23 @@ import { turnosAPI } from '../lib/api';
 import { format, isToday, isPast, parseISO, startOfDay, addDays, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Calendar, List, CheckCircle, Clock, XCircle, CircleDot } from 'lucide-react';
+import { formatearFechaUTC, formatearFechaCorta, formatearHoraUTC, formatearFechaCompleta } from '../utils/formato';
 
-// Formatear fecha y hora en español
+// Formatear fecha y hora en español (con timezone UTC)
 const formatearFechaHora = (fechaStr) => {
   try {
-    const fecha = new Date(fechaStr);
+    const fecha = new Date(fechaStr + 'Z');
     // 🔍 DIAGNÓSTICO: Verificar año de la fecha
     if (fecha.getFullYear() < 2024) {
       console.warn(`⚠️ [Fecha] Turno con año antiguo: ${fechaStr} → ${fecha.getFullYear()}`);
     }
-    return format(fecha, 'EEEE dd/MM/yyyy - HH:mm', { locale: es });
+    return formatearFechaCompleta(fechaStr);
   } catch {
     return fechaStr;
   }
 };
 
-const formatearFechaCorta = (fechaStr) => {
+const formatearFechaCortaLocal = (fechaStr) => {
   try {
     return format(new Date(fechaStr), 'dd/MM', { locale: es });
   } catch {
@@ -133,7 +134,7 @@ function VistaCalendario({ turnos, fechaSeleccionada, setFechaSeleccionada }) {
                       {dia.esHoy ? 'Hoy' : format(dia.fecha, 'EEEE', { locale: es })}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {formatearFechaCorta(dia.fecha)}
+                      {formatearFechaCortaLocal(dia.fecha)}
                     </div>
                   </div>
                   {tieneTurnos && (
@@ -165,7 +166,7 @@ function VistaCalendario({ turnos, fechaSeleccionada, setFechaSeleccionada }) {
               .sort((a, b) => new Date(a.fecha_turno) - new Date(b.fecha_turno))
               .map((turno) => {
                 const estilo = obtenerEstiloEstado(turno.estado);
-                const hora = format(new Date(turno.fecha_turno), 'HH:mm', { locale: es });
+                const hora = formatearHoraUTC(turno.fecha_turno);
 
                 return (
                   <div

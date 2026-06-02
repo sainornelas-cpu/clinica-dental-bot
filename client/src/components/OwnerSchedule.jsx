@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { turnosAPI } from '../lib/api';
 import { Calendar, User, Phone, Clock, Activity, Trash2, Edit2, Check, X } from 'lucide-react';
+import { formatearFechaUTC, formatearHoraUTC } from '../utils/formato';
 
 // Formatear fecha para input datetime-local
 const formatDateTimeLocal = (dateStr) => {
@@ -248,12 +249,10 @@ export default function OwnerSchedule() {
                     <td className="px-4 py-3 font-medium text-gray-900">{turno.nombre_paciente}</td>
                     <td className="px-4 py-3 text-gray-600">{turno.numero_telefono}</td>
                     <td className="px-4 py-3 text-gray-600">
-                      {new Date(turno.fecha_turno).toLocaleString('es-AR', {
+                      {formatearFechaUTC(turno.fecha_turno, {
                         weekday: 'short',
                         day: 'numeric',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit'
+                        month: 'short'
                       })}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{turno.tipo_turno}</td>

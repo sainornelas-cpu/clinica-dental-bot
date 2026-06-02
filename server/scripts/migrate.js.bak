@@ -1,0 +1,59 @@
+﻿// server/scripts/migrate.js
+// Script de migración: agregar columnas faltantes a la tabla turnos
+import { getDb } from '../db.js';
+
+const runMigration = async () => {
+  const db = getDb();
+  
+  console.log('🔄 Iniciando migración de base de datos...');
+  
+  try {
+    // Agregar columna 'creado_por' si no existe
+    await db.run(`
+      ALTER TABLE turnos 
+      ADD COLUMN creado_por TEXT DEFAULT 'whatsapp'
+    `);
+    console.log('✅ Columna "creado_por" agregada');
+    
+    // Agregar columna 'cancelado_por' si no existe
+    await db.run(`
+      ALTER TABLE turnos 
+      ADD COLUMN cancelado_por TEXT
+    `);
+    console.log('✅ Columna "cancelado_por" agregada');
+    
+    // Agregar columna 'cancelado_en' si no existe
+    await db.run(`
+      ALTER TABLE turnos 
+      ADD COLUMN cancelado_en DATETIME
+    `);
+    console.log('✅ Columna "cancelado_en" agregada');
+    
+    // Agregar columna 'modificado_por' si no existe
+    await db.run(`
+      ALTER TABLE turnos 
+      ADD COLUMN modificado_por TEXT
+    `);
+    console.log('✅ Columna "modificado_por" agregada');
+    
+    console.log('🎉 Migración completada exitosamente');
+    
+  } catch (error) {
+    // Si la columna ya existe, SQLite lanza error, lo ignoramos
+    if (error.message.includes('duplicate column name')) {
+      console.log('⚠️  Columna ya existe, continuando...');
+    } else {
+      console.error('❌ Error en migración:', error.message);
+      throw error;
+    }
+  } finally {
+    db.close();
+  }
+};
+
+// Ejecutar si se llama directamente
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runMigration().catch(console.error);
+}
+
+export { runMigration };

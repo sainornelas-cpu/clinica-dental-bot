@@ -1,174 +1,133 @@
-# 🦷 CLÍNICA DENTAL BOT - CLAUDE.md (ESTADO FINAL - FUNCIONAL)
+# 🦷 CLÍNICA DENTAL BOT - CONTEXTO ACTUAL (01/06/2026)
 
-> Archivo de contexto técnico. Leer al inicio de CUALQUIER sesión de desarrollo.
+## 📊 ESTADO DEL PROYECTO
+- **Versión:** v3.6
+- **Estado:** ✅ PRODUCCIÓN ACTIVA
+- **URL:** https://clinica-dental-bot-production.up.railway.app
+- **Dashboard:** https://clinica-dental-bot-production.up.railway.app/dashboard
 
-## 🎯 OBJETIVO
-Sistema de turnos para clínica dental con agente IA "Sarah" vía WhatsApp + Dashboard web para gestión manual.
+## 🎯 QUÉ ES ESTE PROYECTO
+Sistema de recepción dental con IA (Sarah) vía WhatsApp + Dashboard administrativo para gestión de turnos.
 
-## ✅ ESTADO ACTUAL: 100% FUNCIONAL
-- **Backend:** Express + Node.js en http://localhost:3001 ✅
-- **Frontend:** React 18 + Vite + Tailwind en http://localhost:5173 ✅
-- **IA:** OpenAI GPT-4o real (USE_MOCK=false) ✅
-- **Base de datos:** SQLite local (clinica_dental.db) ✅
-- **WhatsApp:** Twilio Sandbox + Ngrok ✅
-- **Contexto:** Sarah recuerda conversaciones multi-turno ✅
-- **Tools:** Agendar, consultar, cancelar, reprogramar turnos ✅
+## 🏗️ ARQUITECTURA
+- **Backend:** Node.js + Express + SQLite (Railway)
+- **Frontend:** React 18 + Vite + Tailwind CSS
+- **IA:** OpenAI GPT-4o-mini (principal) + Groq fallback
+- **WhatsApp:** Twilio Sandbox → Webhook → Sarah → TwiML → Respuesta
+- **Deploy:** Automático con git push
 
-## 🔧 FIXES CRÍTICOS APLICADOS (NO REVERTIR)
+## ✅ FUNCIONALIDADES ACTUALES
 
-### 1. Lazy Init de OpenAI Client (`server/services/openai.js`)
-```javascript
-// Problema: En ES Modules, los imports se ejecutan antes que dotenv.config()
-// Solución: Inicializar el cliente DENTRO de la función, no al nivel módulo
-let openaiClient = null;
-const getOpenAIClient = () => {
-  if (!openaiClient) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('OPENAI_API_KEY no definida');
-    openaiClient = new OpenAI({ apiKey });
-    console.log('🔑 OpenAI client inicializado');
-  }
-  return openaiClient;
-};
-// Uso: await getOpenAIClient().chat.completions.create(...)
+### WhatsApp (Sarah)
+- Menú numerado 1-8 con intenciones naturales
+- Agendamiento paso a paso: nombre → servicio → fecha/hora → confirmación
+- Parseo de fechas en español ("mañana 3pm", "sábado 10 de junio")
+- Validación de fechas futuras (no permite pasado)
+- Consulta disponibilidad en tiempo real
+- Reagendar/cancelar turnos
+- Ver ubicación, horarios, servicios, costos
+- Ver mis citas (usa teléfono del webhook automáticamente)
+- Tono rioplatense (vos, tenés, querés)
 
-Evaluación Lazy de USE_MOCK (server/services/openai.js)
-// Problema: const USE_MOCK = process.env.USE_MOCK !== 'false' se evaluaba antes de dotenv
-// Solución: Función que evalúa en runtime, con parsing robusto
-const isMockMode = () => {
-  const val = (process.env.USE_MOCK || '').trim().toLowerCase();
-  return val !== 'false';
-};
-// Uso: if (isMockMode()) { ... }
+### Dashboard
+- **Mensajes:** Lista con filtro por usuario + auto-refresh 5s
+- **Turnos:** Vista Lista + Calendario (próximos 7 días)
+- **Owner Schedule:** Agendar/cancelar manualmente desde dashboard
+- **Configuración:** Datos clínica, horarios, servicios, webhook URL
 
-3. dotenv.config() al inicio absoluto de server/index.js
-// LÍNEAS 1-3 de index.js (CRÍTICO):
-import dotenv from 'dotenv';
-dotenv.config();
-// ← Todo lo demás va DESPUÉS
- ESTRUCTURA DEL PROYECTO
+## 📁 ARCHIVOS CRÍTICOS
 
- clinica-dental-bot/
-├── server/
-│   ├── index.js              # Express + dotenv.config() al inicio
-│   ├── db.js                 # SQLite + schema
-│   ├── routes/
-│   │   ├── webhook.js        # POST /api/webhook/whatsapp (con logs debug)
-│   │   ├── turnos.js, mensajes.js, configuracion.js
-│   ├── services/
-│   │   └── openai.js         # Sarah: lazy init + isMockMode() + tools
-│   └── utils/fechas.js
-├── client/                   # React + Vite + Tailwind
-│   ├── src/
-│   │   ├── main.jsx, App.jsx
-│   │   ├── lib/api.js
-│   │   ├── pages/Landing.jsx, Dashboard.jsx
-│   │   └── components/TabMensajes.jsx, TabTurnos.jsx, TabConfiguracion.jsx
-│   └── vite.config.js        # Proxy /api → localhost:3001
-├── .env                      # OPENAI_API_KEY, USE_MOCK=false, PORT=3001
-├── clinica_dental.db         # SQLite local
-└── CLAUDE.md                 # ESTE ARCHIVO
+### Backend
+- `server/index.js` - Express + static files + SPA routing
+- `server/db.js` - SQLite connection
+- `server/routes/webhook.js` - POST /api/webhook/whatsapp → TwiML
+- `server/routes/turnos.js` - GET/POST/PUT/DELETE para owner
+- `server/services/openai.js` - SYSTEM_PROMPT, processMessage, executeTool
+- `server/services/ai.js` - Wrapper OpenAI + Groq
+- `server/utils/fechas.js` - parsearFechaEspañol + validación futuro
+- `server/utils/telefono.js` - normalización multi-país
 
- VARIABLES DE ENTORNO (.env) - FORMATO EXACTO
- OPENAI_API_KEY=sk-proj-tu-clave-aqui
-USE_MOCK=false
+### Frontend
+- `client/src/App.jsx` - Router + Auth
+- `client/src/pages/Dashboard.jsx` - Tabs principales
+- `client/src/components/TabMensajes.jsx` - Filtro por usuario
+- `client/src/components/TabTurnos.jsx` - Lista + Calendario
+- `client/src/components/OwnerSchedule.jsx` - Agendar/cancelar owner
+- `client/src/components/TabConfiguracion.jsx` - Configuración clínica
+
+## 🔑 VARIABLES DE ENTORNO (Railway)
+OPENAI_API_KEY=sk-proj-... (requerida)
+GROQ_API_KEY=gsk_... (opcional, fallback)
+TWILIO_ACCOUNT_SID=AC...
+TWILIO_AUTH_TOKEN=...
+TWILIO_PHONE_NUMBER=whatsapp:+14155238886
 PORT=3001
- Reglas críticas:
-Sin comillas: KEY=valor ✅ | KEY="valor" ❌
-Sin espacios: USE_MOCK=false ✅ | USE_MOCK = false ❌
-Encoding: UTF-8 sin BOM (usar PowerShell para crear/editar)
+NODE_ENV=production
+DATABASE_URL=file:clinica_dental.db
 
-SERVICIOS EXTERNOS
-Servicio
-Configuración
-Notas
-Twilio WhatsApp Sandbox
-Número: +1 415 523 8886
-Webhook: [NGROK_URL]/api/webhook/whatsapp
-Ngrok
-.\ngrok.exe http 3001
-URL dinámica: cambia al reiniciar
-OpenAI
-GPT-4o + Function Calling
-Tools: consultar_disponibilidad, agendar_turno, etc.
-LOGS DE DEBUG ACTIVOS (OPCIONALES)
-Estos logs ayudan a debuggear pero pueden removerse en producción:
-Archivo
-Líneas
-Log
-Propósito
-webhook.js
-~antes de processMessage
-🔍 [DEBUG] Historial enviado...
-Verificar contexto
-openai.js
-~línea 12
-🔍 [MODULE-LOAD]...
-Confirmar parsing de USE_MOCK
-openai.js
-~línea 200
-🔍 [LAZY-CHECK]...
-Confirmar modo en runtime
-openai.js
-~línea 210
-🔍 [DEBUG] Array messages...
-Verificar formato para OpenAI
-openai.js
-~línea 215
-⚠️ [DEBUG] DUPLICACIÓN...
-Detectar mensajes duplicados (no crítico)
-💡 Para remover logs de debug: Buscar // 🔍 [DEBUG] y console.log asociados, eliminar, guardar.
-WhatsApp → Twilio Sandbox → Ngrok → POST /api/webhook/whatsapp
-→ Express parsea Body/From → Guarda mensaje usuario en SQLite
-→ Obtiene historial (últimos 20 mensajes) → Llama a processMessage
-→ isMockMode() evalúa USE_MOCK en runtime → Si false: usa OpenAI
-→ getOpenAIClient() inicializa cliente si es primera vez
-→ Construye array messages: [system, ...historial, mensaje_actual]
-→ OpenAI responde (posiblemente con tool_calls)
-→ Si hay tools: ejecutar executeTool() → segunda llamada a OpenAI
-→ Guarda respuesta en SQLite → Responde TwiML XML → Twilio → WhatsApp
-→ Dashboard recibe mensaje vía polling cada 5s
- COMANDOS DE VERIFICACIÓN RÁPIDA
- # Backend
-cd "C:/Users/HP/Projects/Clinica-Dental-bot" && npm run dev:server
-# Esperar: "🚀 Servidor escuchando en http://localhost:3001"
+## 🗄️ BASE DE DATOS
+**Tablas:**
+- `configuracion_clinica` - Datos clínica (nombre, dirección, horarios, servicios)
+- `turnos` - Turnos (id, numero_telefono, nombre_paciente, fecha_turno, tipo_turno, estado, creado_por)
+- `mensajes_whatsapp` - Historial mensajes (id, numero_telefono, contenido, remitente, respuesta_ia)
+- `pacientes` - Pacientes conocidos (id, numero_telefono, nombre)
 
-# Frontend
-cd "C:/Users/HP/Projects/Clinica-Dental-bot/client" && npm run dev
-# Esperar: "➜  Local:   http://localhost:5173/"
+## 💬 FLUJO DE CONVERSACIÓN
+Usuario: "Hola" → Sarah: Menú 1-8
+Usuario: "Quiero agendar" → Sarah: "¿Nombre completo?"
+Usuario: "Alfredo Ornelas" → Sarah: "¿Qué tratamiento?"
+Usuario: "Limpieza" → Sarah: "¿Qué día/hora?"
+Usuario: "Martes 2 de junio 10am" → 🔧 consultar_disponibilidad
+Sarah: "✅ Disponible. ¿Confirmo?" → Usuario: "Si" → 🔧 agendar_turno
+Sarah: "¡Listo! Turno confirmado 🎉"
 
-# Ngrok
-cd "C:\ngrok" && .\ngrok.exe http 3001
-# Copiar URL: https://xxx.ngrok-free.dev
+## 🚀 COMANDOS
+```bash
+# Local
+npm run dev:server          # Backend
+cd client && npm run dev    # Frontend
 
-# Probar webhook (curl)
-curl.exe -k -X POST https://xxx.ngrok-free.dev/api/webhook/whatsapp `
-  -d "Body=Hola Sarah&From=whatsapp:+5491112345678"
+# Build
+cd client && npm run build
 
-# Ver logs de modo (al enviar mensaje)
-# Buscar: "🔑 [MODO] USE_MOCK env: "false" → Modo activo: OPENAI"
- RUTA A PRODUCCIÓN (Fase 5 - Pendiente)
-Remover logs de debug de webhook.js y openai.js
-Migrar SQLite → PostgreSQL (opcional, recomendado para escala)
-Deploy backend en Railway/Render con variables de entorno seguras
-Deploy frontend en Vercel/Netlify o servir desde Express
-Actualizar webhook en Twilio a URL de producción (sin Ngrok)
-Configurar dominio personalizado + HTTPS
-Switch a número real de Twilio (no Sandbox)
+# Deploy
+git add . && git commit -m "📝 Descripción" && git push
 
- REGLAS PARA IA ASISTENTE
-Archivos COMPLETOS, UTF-8, JavaScript (no TypeScript)
-Español total en UI, logs, comentarios y prompts
-NO modificar vite.config.js ni tailwind.config.js sin autorización
-Usar async/await y try/catch en todas las operaciones de DB/API
-Mantener compatibilidad con lazy init (getOpenAIClient, isMockMode)
-Antes de escribir archivos, confirmar ruta absoluta
-Esperar confirmación del usuario entre pasos críticos
-Si se agregan logs de debug, documentarlos en esta sección de CLAUDE.md
+# Ver logs
+railway logs  # o Railway Console → Logs
+```
 
-ARCHIVOS CRÍTICOS (NO MODIFICAR SIN CONFIRMACIÓN)
-server/index.js - Orden de imports + dotenv.config()
-server/services/openai.js - Lazy init + isMockMode() + tools
-server/routes/webhook.js - Flujo de webhook + historial
-.env - Variables de entorno (formato exacto)
-client/vite.config.js - Proxy de API
+## ⚠️ ISSUES ACTIVOS (Prioridad)
+🔴 WhatsApp no recibe respuestas - Logs dicen status 200 pero no llega. Debugging activo: verificar TwiML + Twilio Console
+🔴 Fechas mostrando 2023 - Turnos aparecen con año 2023 en lugar de 2026. Investigar DB o formato visualización
+🟡 Owner Schedule: validación - Input datetime-local da error de validación. Necesita fix de formato + min={fecha_actual}
+🟡 Cancelar turno no funciona - Endpoint DELETE existe pero UI no llama correctamente
+
+## 🔍 DEBUGGING ACTUAL
+**WhatsApp Delivery**
+Logs muestran: 📤 [Webhook] Enviando a Twilio: { status: 200, duration: '3126ms' }
+Pero WhatsApp no recibe
+Próximo paso: Verificar Twilio Console → Message Logs → errores 30008/30007
+
+**Dashboard Cache**
+Build exitoso con cache-busting (hash en filenames)
+Hard refresh necesario: Ctrl + Shift + R
+
+## 📋 PRÓXIMOS PASOS INMEDIATOS
+Fix WhatsApp: Agregar logging detallado de TwiML completo
+Fix fechas: Verificar formato de visualización en TabTurnos.jsx
+Fix Owner Schedule: Validación datetime-local + botón cancelar funcional
+Testear: Agendar desde dashboard → Verificar en Lista/Calendario
+
+## 🔄 PROTOCOLO ROLLBACK
+```bash
+git reset --hard HEAD~1
+# Railway Console → Deployments → Redeploy commit anterior
+```
+
+## 📞 NOTAS IMPORTANTES
+- NO modificar SYSTEM_PROMPT sin validación (flujo conversacional funciona)
+- Validación de fechas: margen 15min para allowing same-day scheduling
+- Horario atención: 9:00 - 18:00 (Lunes a Viernes)
+- Twilio Sandbox requiere prefijo "join <palabra>" cada 24h
+- Owner Schedule: nuevo feature, necesita testing completo
