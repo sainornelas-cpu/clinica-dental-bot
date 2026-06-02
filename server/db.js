@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { mkdirSync, existsSync } from 'fs';
 
-// Deploy test: 02/06/2026 - Verificar persistencia de volumen
+// Deploy test: 02/06/2026 - Verificar persistencia de volumen (segundo test)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
