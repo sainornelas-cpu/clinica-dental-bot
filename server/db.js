@@ -2,10 +2,23 @@ import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { mkdirSync, existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dbPath = path.join(__dirname, '..', 'clinica_dental.db');
+
+// Ruta persistente para Railway (volumen montado en /app/data)
+// En local usa clinica_dental.db, en producción usa /app/data/clinica_dental.db
+const dbPath = process.env.DATABASE_URL || path.join(__dirname, '..', 'clinica_dental.db');
+
+// Asegurar que el directorio del volumen existe antes de conectar
+if (dbPath.startsWith('/app/')) {
+  const dbDir = path.dirname(dbPath);
+  if (!existsSync(dbDir)) {
+    mkdirSync(dbDir, { recursive: true });
+    console.log(`📁 [DB] Directorio creado: ${dbDir}`);
+  }
+}
 
 let db;
 
@@ -38,7 +51,11 @@ export const conectarBaseDeDatos = async () => {
       tipo_turno TEXT NOT NULL,
       estado TEXT NOT NULL DEFAULT 'pendiente' CHECK(estado IN ('pendiente', 'confirmado', 'cancelado', 'completado')),
       notas TEXT,
+      creado_por TEXT DEFAULT 'whatsapp',
       creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+      cancelado_por TEXT,
+      cancelado_en DATETIME,
+      modificado_por TEXT,
       actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     
