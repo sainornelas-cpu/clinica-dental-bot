@@ -116,7 +116,16 @@ export default function OwnerSchedule() {
     }
 
     // Combinar fecha y hora para enviar al backend
-    const fechaHoraCompleta = `${formData.fecha_turno}T${formData.hora_turno}:00.000Z`;
+    // formData.fecha_turno viene como "2026-06-05" (YYYY-MM-DD)
+    // formData.hora_turno viene como "14:00" (HH:mm)
+    // Formato ISO 8601 sin timezone: "2026-06-05T14:00:00"
+    const fechaHoraCompleta = `${formData.fecha_turno}T${formData.hora_turno}:00`;
+
+    console.log('📅 [Owner] Fecha a enviar:', {
+      fecha: formData.fecha_turno,
+      hora: formData.hora_turno,
+      fechaHoraCompleta: fechaHoraCompleta
+    });
 
     crearMutation.mutate({
       ...formData,

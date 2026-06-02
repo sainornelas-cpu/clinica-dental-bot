@@ -95,11 +95,11 @@ router.post('/', async (req, res) => {
   try {
     const { numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas } = req.body;
 
-    console.log('📝 [Owner] Agendando turno:', {
-      numero_telefono,
-      nombre_paciente,
+    console.log('📝 [Owner] Datos recibidos:', {
       fecha_turno,
-      tipo_turno
+      tipo: typeof fecha_turno,
+      numero_telefono,
+      nombre_paciente
     });
 
     // Validar campos requeridos
@@ -110,8 +110,25 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Validar que fecha sea futura
+    // Validar que fecha_turno es una fecha válida
     const fechaObj = new Date(fecha_turno);
+    if (isNaN(fechaObj.getTime())) {
+      console.error('❌ [Owner] Fecha inválida:', fecha_turno);
+      return res.status(400).json({
+        error: 'Fecha inválida',
+        fecha_recibida: fecha_turno
+      });
+    }
+
+    console.log('💾 [Owner] Insertando en DB:', {
+      fecha_turno: fecha_turno,
+      fecha_obj: fechaObj,
+      fecha_iso: fechaObj.toISOString(),
+      tipo_turno,
+      nombre_paciente
+    });
+
+    // Validar que fecha sea futura
     const ahora = new Date();
     if (fechaObj <= ahora) {
       return res.status(400).json({
