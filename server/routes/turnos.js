@@ -32,6 +32,63 @@ router.get('/:fecha', async (req, res) => {
 });
 
 // ==========================================
+// 🕐 OWNER SCHEDULING: Obtener slots disponibles
+// ==========================================
+router.get('/slots', async (req, res) => {
+  try {
+    const { fecha } = req.query;  // Formato: "2026-06-02"
+
+    if (!fecha) {
+      return res.status(400).json({ error: 'Fecha requerida' });
+    }
+
+    const db = getDb();
+
+    // Obtener turnos ocupados para esa fecha
+    const turnosOcupados = await db.all(
+      'SELECT fecha_turno FROM turnos WHERE DATE(fecha_turno) = ? AND estado != "cancelado"',
+      [fecha]
+    );
+
+    // Extraer solo las horas (ej: "14:00:00" → "14:00")
+    const horasOcupadas = turnosOcupados.map(t => {
+      const date = new Date(t.fecha_turno);
+      return `${date.getHours().toString().padStart(2, '0')}:00`;
+    });
+
+    // Generar slots disponibles
+    const { generarSlotsDisponibles } = await import('../utils/fechas.js');
+    const slotsDisponibles = generarSlotsDisponibles(fecha, turnosOcupados);
+
+    // Filtrar slots pasados si es hoy
+    const hoy = new Date().toISOString().split('T')[0];
+    let slotsFiltrados = slotsDisponibles;
+
+    if (fecha === hoy) {
+      const ahora = new Date();
+      const horaActual = ahora.getHours();
+      const minutoActual = ahora.getMinutes();
+      const horaLimite = horaActual + (minutoActual > 0 ? 1 : 0) + 1; // +1 hora de margen
+
+      slotsFiltrados = slotsDisponibles.filter(slot => {
+        const horaSlot = parseInt(slot.split(':')[0]);
+        return horaSlot >= horaLimite;
+      });
+    }
+
+    res.json({
+      fecha,
+      slots: slotsFiltrados,
+      ocupados: horasOcupadas
+    });
+
+  } catch (error) {
+    console.error('❌ [Owner/Slots] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
 // 👤 OWNER SCHEDULING: Crear turno desde dashboard
 // ==========================================
 router.post('/', async (req, res) => {

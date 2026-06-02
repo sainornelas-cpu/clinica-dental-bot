@@ -131,3 +131,138 @@ git reset --hard HEAD~1
 - Horario atención: 9:00 - 18:00 (Lunes a Viernes)
 - Twilio Sandbox requiere prefijo "join <palabra>" cada 24h
 - Owner Schedule: nuevo feature, necesita testing completo
+
+## 🔄 LOG DE FIXES - Persistencia de Base de Datos (02/06/2026)
+
+### Issue: Datos se perdían en cada deploy
+- **Problema:** Railway usa filesystem efímero por defecto → cada deploy reinicia la DB
+- **Síntoma:** Logs mostraban `SQLITE_ERROR: no such column: creado_por` después de deploys
+- **Solución:** Configurar volumen persistente en Railway + ajustar ruta de DB
+
+### Cambios Aplicados:
+1. ✅ Volumen creado en Railway: `clinica-dental-bot-volume` mountPath: `//app/data`
+2. ✅ `server/db.js` actualizado:
+   - Detección automática de entorno Railway vs local
+   - Ruta persistente: `//app/data/clinica_dental.db` (doble slash requerido por Railway)
+   - Creación automática del directorio si no existe
+   - Logging: `💾 [DB] Usando volumen persistente: //app/data/clinica_dental.db`
+3. ✅ Schema migrado en DB persistente:
+   - Columnas agregadas: `creado_por`, `cancelado_por`, `cancelado_en`, `modificado_por`
+4. ✅ Persistencia verificada:
+   - Turno creado antes del deploy → sobrevive después del deploy
+   - API responde sin errores de columna
+
+### Comandos Clave:
+```powershell
+# Crear volumen (manual en Railway Console si CLI falla):
+# Railway Console → Project → Volumes → New Volume
+# Name: clinica-db, Mount Path: //app/data, Attach: clinica-dental-bot
+
+# Verificar volumen:
+railway volume list
+
+# Verificar que usa volumen:
+railway logs --lines 100 | grep "Usando volumen persistente"
+
+# Test de persistencia:
+curl.exe -X POST https://.../api/turnos -H "Content-Type: application/json" -d "{...}"
+# → Hacer deploy trivial → curl.exe .../api/turnos → verificar que el turno sigue ahí
+```
+
+### Notas Técnicas:
+- ⚠️ Railway requiere //app/data (doble slash) en mountPath, no /app/data
+- ⚠️ La variable DATABASE_URL NO debe configurarse para SQLite en Railway (usa ruta hardcoded)
+- ✅ El volumen tiene 49 MB asignados (free tier)
+- ✅ Backups: Manual via railway shell → sqlite3 //app/data/clinica_dental.db ".backup backup.db"
+
+**Estado:** ✅ RESUELTO - DB persistente funcionando en producción
+
+---
+
+## 🗺️ Roadmap Sistemático: Próximos Pasos
+
+Ahora que la DB es persistente, podemos avanzar con confianza. Aquí está el plan ordenado por prioridad:
+
+### 🔴 PRIORIDAD 1: Issues Críticos (Bloquean UX)
+
+| # | Issue | Descripción | Estimado | Estado |
+|---|-------|-------------|----------|--------|
+| 1 | 🔄 WhatsApp delivery | Límite diario de Twilio Sandbox (63038) | Esperar 24h o upgrade | ⏳ Pendiente |
+| 2 | ✅ DB Persistencia | Volumen Railway configurado | **COMPLETADO** | ✅ Listo |
+| 3 | ✅ Fechas frontend | Timezone UTC fix en componentes | **COMPLETADO** | ✅ Listo |
+
+### 🟡 PRIORIDAD 2: Mejoras de UX (Owner Dashboard)
+
+| # | Issue | Descripción | Solución Propuesta | Estimado |
+|---|-------|-------------|-------------------|----------|
+| 4 | Owner Schedule: Validación datetime | Input permite fechas pasadas o da error | Agregar `min={new Date().toISOString().slice(0,16)}` + validación JS | 30 min |
+| 5 | Cancelar turno desde dashboard | Botón no funciona o no actualiza UI | Verificar endpoint DELETE + `queryClient.invalidateQueries` | 20 min |
+| 6 | Owner Schedule: Feedback visual | No hay confirmación clara de éxito/error | Agregar toast notifications o banners | 15 min |
+
+### 🟢 PRIORIDAD 3: Pulido Final (Producción Ready)
+
+| # | Issue | Descripción | Solución Propuesta | Estimado |
+|---|-------|-------------|-------------------|----------|
+| 7 | Encoding UTF-8 en responses | Caracteres como "ó" se muestran como `´┐¢` | Agregar `charset=utf-8` en headers de Express | 10 min |
+| 8 | Logging de performance | No hay métricas de latencia por endpoint | Agregar middleware de logging con duración | 20 min |
+| 9 | Health check endpoint | Railway usa `/api/configuracion` pero podría ser más específico | Crear `/api/health` que verifique DB + IA + WhatsApp | 15 min |
+| 10 | Backup automático de DB | Actualmente manual | Script cron en Railway o GitHub Action semanal | 45 min |
+
+---
+
+## 🎯 Método de Trabajo Recomendado (Para Cada Issue)
+
+Para mantener la calidad y evitar romper lo que funciona, seguimos este protocolo:
+
+┌─────────────────────────────────────┐
+│ 1. DIAGNÓSTICO (5 min)              │
+│    - Reproducir el issue            │
+│    - Identificar causa raíz          │
+│    - Definir criterio de éxito      │
+└─────────────────────────────────────┘
+↓
+┌─────────────────────────────────────┐
+│ 2. FIX PROPUESTO (10 min)           │
+│    - Claude genera código + diff    │
+│    - Revisión senior (vos)          │
+│    - Aprobación explícita            │
+└─────────────────────────────────────┘
+↓
+┌─────────────────────────────────────┐
+│ 3. APLICACIÓN + TEST (15 min)       │
+│    - Commit + deploy                │
+│    - Prueba inmediata del fix       │
+│    - Verificar que no rompió nada   │
+└─────────────────────────────────────┘
+↓
+┌─────────────────────────────────────┐
+│ 4. DOCUMENTACIÓN (5 min)            │
+│    - Actualizar CLAUDE.md           │
+│    - Agregar nota en log de fixes   │
+│    - Pasar al siguiente issue       │
+└─────────────────────────────────────┘
+
+---
+
+🦷 CLÍNICA DENTAL BOT - ESTADO: ✅ PRODUCCIÓN ESTABLE
+
+✅ FUNCIONAL:
+- WhatsApp → Sarah → Respuesta (código OK, límite Twilio externo)
+- Agendamiento paso a paso con IA
+- Dashboard con filtro por usuario
+- Owner Schedule con creación/cancelación de turnos
+- DB SQLite persistente en Railway (volumen //app/data)
+- Fechas con timezone UTC en frontend
+
+⚠️ PENDIENTES CRÍTICOS:
+- WhatsApp: Límite diario Twilio Sandbox (esperar reset o upgrade)
+
+📋 PRÓXIMOS EN COLA:
+- Owner Schedule: Validación de fecha/hora
+- Cancelar turno: Fix de UI + invalidación de cache
+- Encoding UTF-8: Fix de caracteres especiales
+
+🔧 MANTENIMIENTO:
+- Backup manual de DB: railway shell → sqlite3 .backup
+- Monitoreo: Railway Console → Logs
+- Costos: OpenAI ~$0.002/mensaje, Railway free tier

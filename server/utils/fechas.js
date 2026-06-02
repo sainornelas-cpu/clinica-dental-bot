@@ -18,16 +18,17 @@ export const esFechaValida = (fechaStr) => {
 
 export const generarSlotsDisponibles = async (fechaYYYYMMDD, turnosOcupados) => {
   const slots = [];
-  const [horaInicio, horaFin] = [9, 18];
+  const horaInicio = 9;  // 9:00 AM
+  const horaFin = 18;    // 18:00 PM (último turno 17:00)
+
+  // Solo slots de 1 hora (XX:00), no de 30 minutos
   for (let hora = horaInicio; hora < horaFin; hora++) {
-    for (let minuto of [0, 30]) {
-      const slotTime = `${hora.toString().padStart(2, '0')}:${minuto.toString().padStart(2, '0')}`;
-      const slotDateTime = `${fechaYYYYMMDD}T${slotTime}:00`;
-      const ocupado = turnosOcupados.some(t =>
-        new Date(t.fecha_turno).toISOString().slice(0, 16) === slotDateTime
-      );
-      if (!ocupado) slots.push(slotTime);
-    }
+    const slotTime = `${hora.toString().padStart(2, '0')}:00`;
+    const slotDateTime = `${fechaYYYYMMDD}T${slotTime}:00`;
+    const ocupado = turnosOcupados.some(t =>
+      new Date(t.fecha_turno).toISOString().slice(0, 16) === slotDateTime
+    );
+    if (!ocupado) slots.push(slotTime);
   }
   return slots;
 };
