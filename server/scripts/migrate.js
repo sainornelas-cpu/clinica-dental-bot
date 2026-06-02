@@ -1,27 +1,21 @@
 // server/scripts/migrate.js
 // Script de migración: agregar columnas faltantes a la tabla turnos
-// Versión CORREGIDA: inicializa DB correctamente
+// Versión con logging forzado para Railway
 
-// 🔧 IMPORTANTE: Inicializar dotenv y conectar DB antes de usar getDb
-import dotenv from 'dotenv';
-dotenv.config();
+import { getDb } from '../db.js';
 
-import { conectarBaseDeDatos, getDb } from '../db.js';
-
-// Forzar logs inmediatos
+// 🔧 Forzar logs inmediatos (evitar buffer en Railway)
 console.log = (...args) => process.stdout.write(args.join(' ') + '\n');
 console.error = (...args) => process.stderr.write(args.join(' ') + '\n');
 
 const runMigration = async () => {
   console.log('🔄 [MIGRATE] Iniciando migración de base de datos...');
+  console.log('📦 [MIGRATE] Conectando a DB...');
   
+  let db;
   try {
-    // ✅ PASO CRÍTICO: Conectar la base de datos primero
-    console.log('📦 [MIGRATE] Conectando a DB...');
-    await conectarBaseDeDatos();
-    console.log('✅ [MIGRATE] DB conectada exitosamente');
-    
-    const db = getDb();
+    db = getDb();
+    console.log('✅ [MIGRATE] DB conectada');
     
     // Lista de columnas a agregar
     const columns = [
@@ -59,16 +53,14 @@ const runMigration = async () => {
     throw error;
     
   } finally {
-    // Cerrar conexión si existe
-    const db = getDb();
-    if (db && typeof db.close === 'function') {
+    if (db) {
       db.close();
       console.log('🔌 [MIGRATE] DB cerrada');
     }
   }
 };
 
-// Ejecutar inmediatamente
+// 🔥 Ejecutar inmediatamente al importar (garantiza ejecución en Railway)
 console.log('🚀 [MIGRATE] Script iniciado');
 runMigration()
   .then(result => {
